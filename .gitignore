@@ -1,0 +1,52 @@
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+.ipynb_checkpoints/
+venv/
+env/
+.venv/
+
+# ===== Datasets & Outputs (too large for Git) =====
+VLU-Net/datasets/
+VLU-Net/output/
+VLU-Net/pretrained_ckpt/
+
+# ===== Nested git repository (original upstream clone) =====
+VLU-Net/.git/
+
+# ===== Node.js / Vite viewer =====
+node_modules/
+dist/
+dist-ssr/
+*.local
+vlu-net-viewer/npm-debug.log*
+vlu-net-viewer/yarn-debug.log*
+vlu-net-viewer/yarn-error.log*
+vlu-net-viewer/pnpm-debug.log*
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== IDE / Editor =====
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Temp / scratch files =====
+sizes.txt
