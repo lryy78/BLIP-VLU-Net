@@ -1,16 +1,20 @@
-# React + Vite
+# VLU-Net Viewer
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interactive React + Vite viewer for comparing VLU-Net and BLIP-VLU-Net restoration outputs.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+```shell
+npm install
+npm start
+```
 
-## React Compiler
+`npm start` and `npm run dev` both start the Vite frontend and Express image backend together.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Supported Tasks
 
-## Expanding the ESLint configuration
+- Single lowlight, rain, haze, blur, and noise
+- 3-task NHR with `CBSD68`, `Urban100_HR`, `SOTS_outdoors`, and `Rain100L`
+- 5-task NHRBL with `CBSD68`, `Urban100_HR`, `SOTS_outdoors`, `Rain100L`, `GoPro`, and `LoL`
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+The viewer calculates PSNR/SSIM in the browser for VLU and BLIP-VLU images that exist. Missing BLIP outputs show `N/A` and do not block VLU metric calculation.

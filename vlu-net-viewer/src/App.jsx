@@ -27,6 +27,7 @@ function App() {
 
   const [metrics, setMetrics] = useState({ vlu: { psnr: 'N/A', ssim: 'N/A' }, blip: { psnr: 'N/A', ssim: 'N/A' } });
   const [loading, setLoading] = useState(false);
+  const [imageStatus, setImageStatus] = useState('Loading images...');
 
   // Slider State
   const [sliderLeft, setSliderLeft] = useState('degraded');
@@ -51,7 +52,7 @@ function App() {
     if (selectedTask === 'Single noise') {
       setDataset('CBSD68');
       setNoiseLevel('noisy15');
-    } else if (selectedTask === '3tasks') {
+    } else if (selectedTask === '3tasks' || selectedTask === '5tasks') {
       setDataset('CBSD68');
       setNoiseLevel('noisy15');
     } else {
@@ -61,18 +62,17 @@ function App() {
   }, [selectedTask]);
 
   useEffect(() => {
-    if (selectedTask === '5tasks') return;
-
     // For noise-type tasks, wait until dataset and noiseLevel are set
-    if (selectedTask === 'Single noise' || selectedTask === '3tasks') {
+    if (selectedTask === 'Single noise' || selectedTask === '3tasks' || selectedTask === '5tasks') {
       if (!dataset || !noiseLevel) return;
-      // For 3tasks with haze/rain datasets, the level must match
-      if (selectedTask === '3tasks' && dataset === 'SOTS_outdoors' && noiseLevel !== 'hazy') {
-        setNoiseLevel('hazy');
-        return;
-      }
-      if (selectedTask === '3tasks' && dataset === 'Rain100L' && noiseLevel !== 'rainy') {
-        setNoiseLevel('rainy');
+      const fixedLevels = {
+        SOTS_outdoors: 'hazy',
+        Rain100L: 'rainy',
+        GoPro: 'blur',
+        LoL: 'lowlight'
+      };
+      if (fixedLevels[dataset] && noiseLevel !== fixedLevels[dataset]) {
+        setNoiseLevel(fixedLevels[dataset]);
         return;
       }
     }
@@ -81,10 +81,15 @@ function App() {
   }, [selectedTask, dataset, noiseLevel]);
 
   const fetchImages = async () => {
+    setImageStatus('Loading images...');
     try {
       const url = new URL(`${API_BASE}/tasks`);
       url.search = new URLSearchParams({ task: selectedTask, dataset, level: noiseLevel });
       const res = await fetch(url);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.details || errorData.error || `Request failed with ${res.status}`);
+      }
       const data = await res.json();
       
       const files = data.files || [];
@@ -95,12 +100,14 @@ function App() {
         pickRandomImage(files, data.paths);
       } else {
         setCurrentImage(null);
+        setImageStatus('No images found in the selected directory.');
       }
     } catch (err) {
       console.error('Error fetching images:', err);
       setImageList([]);
       setCurrentImage(null);
       setPaths(null);
+      setImageStatus(`Could not load images: ${err.message}. Make sure the backend server is running.`);
     }
   };
 
@@ -118,7 +125,7 @@ function App() {
     const img = new Image();
     img.crossOrigin = 'Anonymous';
     img.onload = () => resolve(img);
-    img.onerror = reject;
+    img.onerror = () => reject(new Error(`Could not load image: ${url}`));
     img.src = url;
   });
 
@@ -151,14 +158,19 @@ function App() {
       const gtUrl = getImageUrl(currentPaths.gt, getGTFilename(selectedTask, filename));
       const gtImg = await loadImage(gtUrl);
 
-      const degUrl = currentPaths.degraded ? getImageUrl(currentPaths.degraded, filename) : null;
-      const degImg = degUrl ? await loadImage(degUrl) : null;
+      const tryLoadImage = async (url) => {
+        if (!url) return null;
+        try {
+          return await loadImage(url);
+        } catch (error) {
+          console.warn(error.message);
+          return null;
+        }
+      };
 
-      const vluUrl = currentPaths.vlu ? getImageUrl(currentPaths.vlu, filename) : null;
-      const vluImg = vluUrl ? await loadImage(vluUrl) : null;
-
-      const blipUrl = currentPaths.blip_vlu ? getImageUrl(currentPaths.blip_vlu, filename) : null;
-      const blipImg = blipUrl ? await loadImage(blipUrl) : null;
+      const degImg = await tryLoadImage(currentPaths.degraded ? getImageUrl(currentPaths.degraded, filename) : null);
+      const vluImg = await tryLoadImage(currentPaths.vlu ? getImageUrl(currentPaths.vlu, filename) : null);
+      const blipImg = await tryLoadImage(currentPaths.blip_vlu ? getImageUrl(currentPaths.blip_vlu, filename) : null);
 
       // Find the minimum dimensions to crop larger images (like GT) down to the model's output size
       const images = [gtImg];
@@ -188,7 +200,8 @@ function App() {
 
       // PSNR calculation
       const gtData = getImageData(gtImg);
-      let vluMetrics = null;
+      const unavailableMetrics = { psnr: 'N/A', ssim: 'N/A' };
+      let vluMetrics = unavailableMetrics;
       if (vluImg) {
         const vluData = getImageData(vluImg, gtImg.width, gtImg.height);
         const psnr = calculatePSNR(vluData, gtData);
@@ -196,7 +209,7 @@ function App() {
         vluMetrics = { psnr, ssim: ssimRes.mssim.toFixed(4) };
       }
 
-      let blipMetrics = null;
+      let blipMetrics = unavailableMetrics;
       if (blipImg) {
         const blipData = getImageData(blipImg, gtImg.width, gtImg.height);
         const psnr = calculatePSNR(blipData, gtData);
@@ -220,10 +233,10 @@ function App() {
   };
 
   const getGTFilename = (task, filename) => {
-    if (task === 'Single haze' || (task === '3tasks' && dataset === 'SOTS_outdoors')) {
+    if (task === 'Single haze' || ((task === '3tasks' || task === '5tasks') && dataset === 'SOTS_outdoors')) {
       // 0001_0.8_0.2.jpg -> 0001.png
       return filename.split('_')[0] + '.png';
-    } else if (task === 'Single rain' || (task === '3tasks' && dataset === 'Rain100L')) {
+    } else if (task === 'Single rain' || ((task === '3tasks' || task === '5tasks') && dataset === 'Rain100L')) {
       // rain-001.png -> norain-001.png
       return filename.replace('rain-', 'norain-');
     }
@@ -358,16 +371,22 @@ function App() {
           ))}
         </div>
 
-        {(selectedTask === 'Single noise' || selectedTask === '3tasks') && (
+        {(selectedTask === 'Single noise' || selectedTask === '3tasks' || selectedTask === '5tasks') && (
           <div className="sub-options">
             <label>Dataset:</label>
             <select value={dataset} onChange={e => setDataset(e.target.value)}>
               <option value="CBSD68">CBSD68</option>
               <option value="Urban100_HR">Urban100_HR</option>
-              {selectedTask === '3tasks' && (
+              {(selectedTask === '3tasks' || selectedTask === '5tasks') && (
                 <>
                   <option value="SOTS_outdoors">SOTS_outdoors</option>
                   <option value="Rain100L">Rain100L</option>
+                </>
+              )}
+              {selectedTask === '5tasks' && (
+                <>
+                  <option value="GoPro">GoPro</option>
+                  <option value="LoL">LoL</option>
                 </>
               )}
             </select>
@@ -393,10 +412,8 @@ function App() {
 
       {/* Main Content */}
       <div className="main-content">
-        {selectedTask === '5tasks' ? (
-          <div className="empty-state">No paths specified for 5tasks.</div>
-        ) : !currentImage ? (
-          <div className="empty-state">Loading images or none found in directory...</div>
+        {!currentImage ? (
+          <div className="empty-state">{imageStatus}</div>
         ) : (
           <div className="viewer">
             <h2 className="image-title">Filename: {currentImage}</h2>

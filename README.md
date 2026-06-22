@@ -59,11 +59,12 @@ Download pretrained weights and datasets as described in [`VLU-Net/README.md`](V
 ```shell
 cd vlu-net-viewer
 npm install
-npm start          # runs Vite dev server + Express image server concurrently
+npm start          # same as npm run dev; runs Vite + Express image server
 ```
 
 The viewer lets you:
 - Select restoration tasks (single lowlight / rain / haze / blur / noise, 3-task, 5-task)
+- Use dataset/level selectors for single noise, 3-task NHR, and 5-task NHRBL results
 - Shuffle images within each task
 - Compare **degraded**, **VLU restored**, **BLIP-VLU restored**, and **GT** images with an image slider
 - View per-image **PSNR/SSIM** metrics

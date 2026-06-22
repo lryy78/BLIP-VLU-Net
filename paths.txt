@@ -96,6 +96,20 @@ D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHR\Urban100_HR\Denoise50
 D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHR\SOTS_outdoors\Dehazing
 D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHR\Rain100L\Deraining
 
+3task blip vlu restore image path:
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\CBSD68\Denoise_rand
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\CBSD68\Denoise15
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\CBSD68\Denoise25
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\CBSD68\Denoise50
+
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\Urban100_HR\Denoise_rand
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\Urban100_HR\Denoise15
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\Urban100_HR\Denoise25
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\Urban100_HR\Denoise50
+
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\SOTS_outdoors\Dehazing
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHR\Rain100L\Deraining
+
 3task gt image:
 D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\CBSD68\clean
 D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\Urban100_HR\clean
@@ -103,3 +117,62 @@ D:\BLIP-VLU-Net\VLU-Net\datasets\dehazing_datasets\SOTS_outdoors\clear
 D:\BLIP-VLU-Net\VLU-Net\datasets\deraining_datasets\Rain100L\gt
 
 
+5 task (NHRBL)
+5task degraded image path:
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\CBSD68\noisy_rand
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\CBSD68\noisy15
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\CBSD68\noisy25
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\CBSD68\noisy50
+
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\Urban100_HR\noisy_rand
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\Urban100_HR\noisy15
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\Urban100_HR\noisy25
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\Urban100_HR\noisy50
+
+D:\BLIP-VLU-Net\VLU-Net\datasets\dehazing_datasets\SOTS_outdoors\hazy
+
+D:\BLIP-VLU-Net\VLU-Net\datasets\deraining_datasets\Rain100L\rainy
+
+D:\BLIP-VLU-Net\VLU-Net\datasets\deblurring_datasets\GoPro\test\blur
+
+D:\BLIP-VLU-Net\VLU-Net\datasets\delowlight_datasets\LoL\eval15\low
+
+5task vlu restore image path:
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\CBSD68\Denoise_rand
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\CBSD68\Denoise15
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\CBSD68\Denoise25
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\CBSD68\Denoise50
+
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\Urban100_HR\Denoise_rand
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\Urban100_HR\Denoise15
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\Urban100_HR\Denoise25
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\Urban100_HR\Denoise50
+
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\SOTS_outdoors\Dehazing
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\Rain100L\Deraining
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\GoPro\Deblurring
+D:\BLIP-VLU-Net\VLU-Net\output\final_results\NHRBL\LoL\Delowlight
+
+5task blip vlu restore image path:
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\CBSD68\Denoise_rand
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\CBSD68\Denoise15
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\CBSD68\Denoise25
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\CBSD68\Denoise50
+
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\Urban100_HR\Denoise_rand
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\Urban100_HR\Denoise15
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\Urban100_HR\Denoise25
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\Urban100_HR\Denoise50
+
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\SOTS_outdoors\Dehazing
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\Rain100L\Deraining
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\GoPro\Deblurring
+D:\BLIP-VLU-Net\VLU-Net\output\blip_final_results\blip_NHRBL\LoL\Delowlight
+
+5task gt image:
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\CBSD68\clean
+D:\BLIP-VLU-Net\VLU-Net\datasets\denoising_datasets\Urban100_HR\clean
+D:\BLIP-VLU-Net\VLU-Net\datasets\dehazing_datasets\SOTS_outdoors\clear
+D:\BLIP-VLU-Net\VLU-Net\datasets\deraining_datasets\Rain100L\gt
+D:\BLIP-VLU-Net\VLU-Net\datasets\deblurring_datasets\GoPro\test\sharp
+D:\BLIP-VLU-Net\VLU-Net\datasets\delowlight_datasets\LoL\eval15\high
