@@ -160,10 +160,10 @@ function App() {
     const f = overrideFilename || currentImage;
     if (!p || !f) return '';
     switch (type) {
-      case 'degraded': return `${API_BASE}/aligned-image?path=${encodeURIComponent(p.degraded + '\\' + f)}`;
-      case 'vlu': return `${API_BASE}/aligned-image?path=${encodeURIComponent(p.vlu + '\\' + f)}`;
-      case 'blip': return p.blip_vlu ? `${API_BASE}/aligned-image?path=${encodeURIComponent(p.blip_vlu + '\\' + f)}` : '';
-      case 'gt': return `${API_BASE}/aligned-image?path=${encodeURIComponent(p.gt + '\\' + getGTFilename(selectedTask, f))}`;
+      case 'degraded': return `${API_BASE}/aligned-image?path=${encodeURIComponent(p.degraded + '/' + f)}`;
+      case 'vlu': return `${API_BASE}/aligned-image?path=${encodeURIComponent(p.vlu + '/' + f)}`;
+      case 'blip': return p.blip_vlu ? `${API_BASE}/aligned-image?path=${encodeURIComponent(p.blip_vlu + '/' + f)}` : '';
+      case 'gt': return `${API_BASE}/aligned-image?path=${encodeURIComponent(p.gt + '/' + getGTFilename(selectedTask, f))}`;
       default: return '';
     }
   };
@@ -255,7 +255,7 @@ function App() {
 
   const getImageUrl = (dir, filename) => {
     if (!dir) return '';
-    return `${API_BASE}/image?path=${encodeURIComponent(dir + '\\' + filename)}`;
+    return `${API_BASE}/image?path=${encodeURIComponent(dir + '/' + filename)}`;
   };
 
   const getGTFilename = (task, filename) => {
