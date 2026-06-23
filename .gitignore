@@ -32,6 +32,7 @@ vlu-net-viewer/pnpm-debug.log*
 # ===== Logs =====
 *.log
 logs/
+VLU-Net/lightning_logs/
 
 # ===== IDE / Editor =====
 .vscode/*
@@ -50,3 +51,4 @@ desktop.ini
 
 # ===== Temp / scratch files =====
 sizes.txt
+=0.12.10

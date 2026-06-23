@@ -1,8 +1,13 @@
-# %%
+import os
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["WANDB_DISABLED"] = "true"
+os.environ["WANDB_MODE"] = "disabled"
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
+import sys
 
 from utils.dataset_utils_clip import PromptTrainDataset, TestDataset_forIR
 from net.Final import VLUNet
@@ -12,11 +17,9 @@ from pytorch_lightning.loggers import WandbLogger
 from pytorch_lightning.callbacks import ModelCheckpoint
 from utils.val_utils import AverageMeter, compute_psnr_ssim
 from utils.image_io import save_image_tensor
-import os
 import argparse
 import open_clip
 from net.clip import *
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 # %%
 parser = argparse.ArgumentParser()
@@ -29,9 +32,13 @@ parser.add_argument('--epochs', type=int, default=200, help='maximum number of e
 parser.add_argument('--batch_size', type=int,default=4,help="Batch size to use per GPU")
 parser.add_argument('--lr', type=float, default=2e-4, help='learning rate of encoder.')
 
-parser.add_argument('--de_type', nargs='+', default=['denoise_15', 'denoise_25', 'denoise_50', 'derain', 'dehaze', 'delowlight', 'deblur'],
+parser.add_argument('--de_type', nargs='+', default=['delowlight'],
                     help='which type of degradations is training and testing for.')
-parser.add_argument('--de_dim', default=7)
+# parser.add_argument('--de_type', nargs='+', default=['denoise_15', 'denoise_25', 'denoise_50', 'derain', 'dehaze'],
+#                     help='which type of degradations is training and testing for.')
+# parser.add_argument('--de_type', nargs='+', default=['denoise_15', 'denoise_25', 'denoise_50', 'derain', 'dehaze', 'delowlight', 'deblur'],
+#                     help='which type of degradations is training and testing for.')
+parser.add_argument('--de_dim', type=int, default=7)
 
 parser.add_argument('--patch_size', type=int, default=128, help='patchsize of input.')
 parser.add_argument('--num_workers', type=int, default=16, help='number of workers.')
@@ -60,7 +67,10 @@ parser.add_argument('--is_clip', type=bool,default=True, help='is clip')
 parser.add_argument('--output_path', type=str, default="output/", help='output save path')
 parser.add_argument('--ckpt_path', type=str, default="ckpt/", help='checkpoint save path')
 parser.add_argument('--pretrained_ckpt_path', type=str, default="./pretrained_ckpt/3task_vlunet.ckpt", help='checkpoint save path')
-options = parser.parse_args(args=[])
+if hasattr(sys, 'ps1') or 'ipykernel' in sys.modules:
+    options = parser.parse_args(args=[])
+else:
+    options = parser.parse_args()
 
 options.output_path = os.path.join(options.output_path, options.name)
 options.ckpt_path = os.path.join(options.ckpt_path, options.name)
@@ -77,7 +87,7 @@ class DAdunModel(pl.LightningModule):
     def __init__(self):
         super().__init__()
         self.net = VLUNet(options.de_dim)
-        
+
         if options.is_clip:
             clip, _, _ = open_clip.create_model_and_transforms('ViT-B-32', pretrained='laion2b_s34b_b79k')
             if options.is_clip_tuning:
@@ -90,10 +100,10 @@ class DAdunModel(pl.LightningModule):
                 for param in clip.parameters():
                     param.requires_grad = False
                 self.model_degradation = clip
-        
+
         self.loss_fn  = nn.L1Loss()
         self.test_step_outputs = []
-    
+
     def forward(self,x, clip_input):
         degradation_features = ""
         if options.is_clip:
@@ -101,30 +111,30 @@ class DAdunModel(pl.LightningModule):
                 degradation_features = self.model_degradation.get_image_features(clip_input)
             else:
                 degradation_features = self.model_degradation.encode_image(clip_input)
-                
+
         return self.net(x, degradation_features)
-    
+
     def training_step(self, batch, batch_idx):
         ([clean_name, de_id], degrad_patch, clean_patch, clip_input) = batch
-        
+
         degradation_features = ""
         if options.is_clip:
             if options.is_clip_tuning:
                 degradation_features = self.model_degradation.get_image_features(clip_input)
             else:
                 degradation_features = self.model_degradation.encode_image(clip_input)
-                
+
         restored = self.net(degrad_patch, degradation_features)
 
         loss = self.loss_fn(restored,clean_patch)
         # Logging to TensorBoard (if installed) by default
         self.log("train_loss", loss)
         return loss
-    
+
     def lr_scheduler_step(self,scheduler,metric):
         scheduler.step(self.current_epoch)
         lr = scheduler.get_last_lr()
-    
+
     def configure_optimizers(self):
         optimizer = optim.AdamW(self.parameters(), lr=2e-4)
         scheduler = LinearWarmupCosineAnnealingLR(optimizer=optimizer,warmup_epochs=15,max_epochs=options.epochs)
@@ -133,14 +143,14 @@ class DAdunModel(pl.LightningModule):
 
     def test_step(self, batch, batch_idx, dataloader_idx=0):
         (input, target, clip_input, type, name, sets_name) = batch
-        
+
         degradation_features = ""
         if options.is_clip:
             if options.is_clip_tuning:
                 degradation_features = self.model_degradation.get_image_features(clip_input)
             else:
                 degradation_features = self.model_degradation.encode_image(clip_input)
-        
+
         restored = self.net(input, degradation_features)
 
         temp_psnr, temp_ssim, N = compute_psnr_ssim(restored, target)
@@ -149,13 +159,13 @@ class DAdunModel(pl.LightningModule):
         output_path = os.path.join(output_path, type[0])
         os.makedirs(output_path, exist_ok=True)
         save_image_tensor(restored, os.path.join(output_path, name[0]))
-        
+
         self.test_step_outputs.append({
             'dataloader_idx': dataloader_idx,
             'temp_psnr': temp_psnr,
             'temp_ssim': temp_ssim
         })
-    
+
     def on_test_epoch_end(self):
         print("\n")
         metrics = {}
@@ -163,10 +173,10 @@ class DAdunModel(pl.LightningModule):
             dataloader_idx = output['dataloader_idx']
             psnr = output['temp_psnr']
             ssim = output['temp_ssim']
-            
+
             if dataloader_idx not in metrics:
                 metrics[dataloader_idx] = {'psnr_sum': 0, 'ssim_sum': 0, 'count': 0}
-                
+
             metrics[dataloader_idx]['psnr_sum'] += psnr
             metrics[dataloader_idx]['ssim_sum'] += ssim
             metrics[dataloader_idx]['count'] += 1
@@ -180,74 +190,71 @@ class DAdunModel(pl.LightningModule):
 
 # %%
 test_loaders = []
-test_path = './datasets/denoising_datasets/CBSD68/15_test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Denoise15", "CBSD68")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
+# test_path = './datasets/denoising_datasets/CBSD68/15_test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Denoise15", "CBSD68")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
-test_path = './datasets/denoising_datasets/CBSD68/25_test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Denoise25", "CBSD68")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
+# test_path = './datasets/denoising_datasets/CBSD68/25_test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Denoise25", "CBSD68")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
-test_path = './datasets/denoising_datasets/CBSD68/50_test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Denoise50", "CBSD68")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
+# test_path = './datasets/denoising_datasets/CBSD68/50_test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Denoise50", "CBSD68")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
-test_path = './datasets/dehazing_datasets/test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Dehazing", "SOTS_outdoors")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
+# test_path = './datasets/dehazing_datasets/test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Dehazing", "SOTS_outdoors")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
-test_path = './datasets/deraining_datasets/Rain100L/test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Deraining", "Rain100L")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
+# test_path = './datasets/deraining_datasets/Rain100L/test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Deraining", "Rain100L")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
-test_path = './datasets/deblurring_datasets/GoPro/test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Deblurring", "GoPro")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
+# test_path = './datasets/deblurring_datasets/GoPro/test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Deblurring", "GoPro")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
 test_path = './datasets/delowlight_datasets/LoL/test_paths.txt'
 test_dataset = TestDataset_forIR(test_path, "Delowlight", "LoL")
 test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
 
-test_path = './datasets/denoising_datasets/CBSD68/rand_test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Denoise_rand", "CBSD68")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
+# test_path = './datasets/denoising_datasets/CBSD68/rand_test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Denoise_rand", "CBSD68")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
-test_path = './datasets/denoising_datasets/Urban100_HR/rand_test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Denoise_rand", "Urban100_HR")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
+# test_path = './datasets/denoising_datasets/Urban100_HR/rand_test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Denoise_rand", "Urban100_HR")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
 
-test_path = './datasets/denoising_datasets/Urban100_HR/15_test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Denoise15", "Urban100_HR")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=3))
+# test_path = './datasets/denoising_datasets/Urban100_HR/15_test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Denoise15", "Urban100_HR")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=3))
 
-test_path = './datasets/denoising_datasets/Urban100_HR/25_test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Denoise25", "Urban100_HR")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=3))
+# test_path = './datasets/denoising_datasets/Urban100_HR/25_test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Denoise25", "Urban100_HR")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=3))
 
-test_path = './datasets/denoising_datasets/Urban100_HR/50_test_paths.txt'
-test_dataset = TestDataset_forIR(test_path, "Denoise50", "Urban100_HR")
-test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
+# test_path = './datasets/denoising_datasets/Urban100_HR/50_test_paths.txt'
+# test_dataset = TestDataset_forIR(test_path, "Denoise50", "Urban100_HR")
+# test_loaders.append(DataLoader(test_dataset, batch_size=1, num_workers=1))
 
 # %%
 def main():
     logger = WandbLogger(
-        project="DAdun",
-        name=options.name,
-        offline=False,
-        config=vars(options),
-        log_model="checkpoint"
-    )
-    os.environ["WANDB_DISABLED"] = "true"
-    
+            project="DAdun",
+            name=options.name,
+            offline=False,
+            config=vars(options),
+            log_model="checkpoint"
+        )
+
     checkpoint_path = options.pretrained_ckpt_path
     model = DAdunModel.load_from_checkpoint(checkpoint_path)
-    
+
     trainer = pl.Trainer(accelerator="gpu", devices=1)
     trainer.test(model, dataloaders=test_loaders)
 
 if __name__ == '__main__':
     main()
-
-
