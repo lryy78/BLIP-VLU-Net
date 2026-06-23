@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
+import sharp from 'sharp';
 
 const app = express();
 app.use(cors());
@@ -181,7 +182,7 @@ app.get('/api/tasks', (req, res) => {
   }
 });
 
-// Endpoint to serve image content by absolute path
+// Endpoint to serve raw image content by absolute path (unchanged originals)
 app.get('/api/image', (req, res) => {
   const { path: filePath } = req.query;
   if (!filePath || !fs.existsSync(filePath)) {
@@ -190,7 +191,58 @@ app.get('/api/image', (req, res) => {
   res.sendFile(filePath);
 });
 
-// Metrics calculation removed from backend. Will be done in frontend using Canvas to avoid heavy npm installs.
+/**
+ * Endpoint: /api/aligned-image
+ * Replicates Python's crop_img(image, base=16) exactly:
+ *   Removes (h % 16) / 2 pixels from top and bottom
+ *   Removes (w % 16) / 2 pixels from left and right
+ * This ensures all displayed images share the same base-16-aligned dimensions,
+ * matching what the model outputs, without modifying any stored files.
+ */
+app.get('/api/aligned-image', async (req, res) => {
+  const { path: filePath } = req.query;
+  if (!filePath || !fs.existsSync(filePath)) {
+    return res.status(404).send('Image not found');
+  }
+
+  const BASE = 16;
+
+  try {
+    const metadata = await sharp(filePath).metadata();
+    const h = metadata.height;
+    const w = metadata.width;
+
+    // Exact replication of Python's crop_img logic:
+    //   crop_h = h % base
+    //   crop_w = w % base
+    //   return image[crop_h//2 : h-crop_h+crop_h//2, crop_w//2 : w-crop_w+crop_w//2, :]
+    const cropH = h % BASE;
+    const cropW = w % BASE;
+    
+    const left = Math.floor(cropW / 2);
+    const top = Math.floor(cropH / 2);
+    const extractWidth = w - cropW;
+    const extractHeight = h - cropH;
+
+    // Only crop if needed (if image is already base-16 aligned, serve full image)
+    if (cropH === 0 && cropW === 0) {
+      // Already aligned; serve as-is for efficiency
+      res.sendFile(filePath);
+      return;
+    }
+
+    const buffer = await sharp(filePath)
+      .extract({ left, top, width: extractWidth, height: extractHeight })
+      .jpeg({ quality: 95 })
+      .toBuffer();
+
+    res.type('image/jpeg');
+    res.send(buffer);
+  } catch (err) {
+    console.error('Error aligning image:', err);
+    res.status(500).send('Error processing image');
+  }
+});
 
 const PORT = 3001;
 const server = app.listen(PORT, () => {

@@ -23,7 +23,6 @@ function App() {
   const [imageList, setImageList] = useState([]);
   const [currentImage, setCurrentImage] = useState(null);
   const [paths, setPaths] = useState(null);
-  const [paddedImages, setPaddedImages] = useState({});
 
   const [metrics, setMetrics] = useState({ vlu: { psnr: 'N/A', ssim: 'N/A' }, blip: { psnr: 'N/A', ssim: 'N/A' } });
   const [loading, setLoading] = useState(false);
@@ -129,10 +128,10 @@ function App() {
     img.src = url;
   });
 
-  const getImageData = (img, targetWidth = null, targetHeight = null) => {
+  const getImageData = (img) => {
     const canvas = document.createElement('canvas');
-    canvas.width = targetWidth || img.width;
-    canvas.height = targetHeight || img.height;
+    canvas.width = img.width;
+    canvas.height = img.height;
     const ctx = canvas.getContext('2d');
     ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     return ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -151,11 +150,36 @@ function App() {
     return (10 * Math.log10((255 * 255) / mse)).toFixed(2);
   };
 
+  // Build aligned image URL for a given image type.
+  // Uses /api/aligned-image which applies symmetric base-16 cropping (exact match to Python's crop_img).
+  // Model outputs (vlu, blip) are already base-16 aligned, so the crop is a no-op on them.
+  // GT and degraded are cropped to match the model's spatial dimensions.
+  // Accepts optional overridePaths/overrideFilename to avoid React stale closure issues.
+  const getAlignedImageUrl = (type, overridePaths = null, overrideFilename = null) => {
+    const p = overridePaths || paths;
+    const f = overrideFilename || currentImage;
+    if (!p || !f) return '';
+    switch (type) {
+      case 'degraded': return `${API_BASE}/aligned-image?path=${encodeURIComponent(p.degraded + '\\' + f)}`;
+      case 'vlu': return `${API_BASE}/aligned-image?path=${encodeURIComponent(p.vlu + '\\' + f)}`;
+      case 'blip': return p.blip_vlu ? `${API_BASE}/aligned-image?path=${encodeURIComponent(p.blip_vlu + '\\' + f)}` : '';
+      case 'gt': return `${API_BASE}/aligned-image?path=${encodeURIComponent(p.gt + '\\' + getGTFilename(selectedTask, f))}`;
+      default: return '';
+    }
+  };
   const fetchMetrics = async (filename, currentPaths) => {
     setLoading(true);
     setMetrics({ vlu: null, blip: null });
     try {
-      const gtUrl = getImageUrl(currentPaths.gt, getGTFilename(selectedTask, filename));
+      // Use the passed filename and paths directly to avoid React stale closure issues
+      const imgFilename = filename;
+      const imgPaths = currentPaths;
+      if (!imgFilename || !imgPaths) {
+        throw new Error('No filename or paths available');
+      }
+
+      // Load all images through the aligned endpoint so everything is base-16 cropped to matching dimensions
+      const gtUrl = getAlignedImageUrl('gt', imgPaths, imgFilename);
       const gtImg = await loadImage(gtUrl);
 
       const tryLoadImage = async (url) => {
@@ -168,60 +192,62 @@ function App() {
         }
       };
 
-      const degImg = await tryLoadImage(currentPaths.degraded ? getImageUrl(currentPaths.degraded, filename) : null);
-      const vluImg = await tryLoadImage(currentPaths.vlu ? getImageUrl(currentPaths.vlu, filename) : null);
-      const blipImg = await tryLoadImage(currentPaths.blip_vlu ? getImageUrl(currentPaths.blip_vlu, filename) : null);
-
-      // Find the minimum dimensions to crop larger images (like GT) down to the model's output size
+      const degImg = await tryLoadImage(getAlignedImageUrl('degraded', imgPaths, imgFilename));
+      const vluImg = await tryLoadImage(getAlignedImageUrl('vlu', imgPaths, imgFilename));
+      const blipImg = await tryLoadImage(getAlignedImageUrl('blip', imgPaths, imgFilename));
+      // After base-16 cropping, all images should have identical dimensions.
+      // We verify: if dimensions differ, fall back to min-dimension crop as safety measure.
       const images = [gtImg];
-      if (degImg) images.push(degImg);
       if (vluImg) images.push(vluImg);
       if (blipImg) images.push(blipImg);
 
       const minW = Math.min(...images.map(img => img.width));
       const minH = Math.min(...images.map(img => img.height));
 
-      const cropImageToSize = (img, targetW, targetH) => {
+      // Ensure all images are exactly the same size for pixel-accurate PSNR/SSIM
+      const ensureSize = (img, targetW, targetH) => {
+        if (img.width === targetW && img.height === targetH) return img;
+        // Fallback: center-crop if base-16 alignment didn't produce identical sizes
         const canvas = document.createElement('canvas');
         canvas.width = targetW;
         canvas.height = targetH;
         const ctx = canvas.getContext('2d');
-        // If image is larger, this draws it at a negative offset, effectively center-cropping it!
         ctx.drawImage(img, (targetW - img.width) / 2, (targetH - img.height) / 2);
-        return canvas.toDataURL('image/jpeg', 0.95);
+        // Return as Image via data URL
+        const result = new Image();
+        result.src = canvas.toDataURL('image/jpeg', 0.95);
+        return new Promise(resolve => { result.onload = () => resolve(result); });
       };
 
-      const newPadded = {
-        gt: cropImageToSize(gtImg, minW, minH)
-      };
-      if (degImg) newPadded.degraded = cropImageToSize(degImg, minW, minH);
-      if (vluImg) newPadded.vlu = cropImageToSize(vluImg, minW, minH);
-      if (blipImg) newPadded.blip = cropImageToSize(blipImg, minW, minH);
+      const [gtFinal, vluFinal, blipFinal] = await Promise.all([
+        gtImg,
+        vluImg ? ensureSize(vluImg, minW, minH) : null,
+        blipImg ? ensureSize(blipImg, minW, minH) : null
+      ]);
 
-      // PSNR calculation
-      const gtData = getImageData(gtImg);
+      // PSNR/SSIM calculation
+      const gtData = getImageData(gtFinal);
       const unavailableMetrics = { psnr: 'N/A', ssim: 'N/A' };
+
       let vluMetrics = unavailableMetrics;
-      if (vluImg) {
-        const vluData = getImageData(vluImg, gtImg.width, gtImg.height);
+      if (vluFinal) {
+        const vluData = getImageData(vluFinal);
         const psnr = calculatePSNR(vluData, gtData);
         const ssimRes = ssim(vluData, gtData);
         vluMetrics = { psnr, ssim: ssimRes.mssim.toFixed(4) };
       }
 
       let blipMetrics = unavailableMetrics;
-      if (blipImg) {
-        const blipData = getImageData(blipImg, gtImg.width, gtImg.height);
+      if (blipFinal) {
+        const blipData = getImageData(blipFinal);
         const psnr = calculatePSNR(blipData, gtData);
         const ssimRes = ssim(blipData, gtData);
         blipMetrics = { psnr, ssim: ssimRes.mssim.toFixed(4) };
       }
 
-      setPaddedImages(newPadded);
       setMetrics({ vlu: vluMetrics, blip: blipMetrics });
     } catch (e) {
       console.error('Error calculating metrics:', e);
-      setPaddedImages({});
       setMetrics({ vlu: { psnr: 'Err: ' + e.message, ssim: 'Err' }, blip: { psnr: 'Err: ' + e.message, ssim: 'Err' } });
     }
     setLoading(false);
@@ -241,18 +267,6 @@ function App() {
       return filename.replace('rain-', 'norain-');
     }
     return filename; // Default to same filename
-  };
-
-  const getImageTypeUrl = (type) => {
-    if (!paths || !currentImage) return '';
-    if (paddedImages[type]) return paddedImages[type]; // Use perfectly aligned padded image if ready
-    switch (type) {
-      case 'degraded': return getImageUrl(paths.degraded, currentImage);
-      case 'vlu': return getImageUrl(paths.vlu, currentImage);
-      case 'blip': return paths.blip_vlu ? getImageUrl(paths.blip_vlu, currentImage) : '';
-      case 'gt': return getImageUrl(paths.gt, getGTFilename(selectedTask, currentImage));
-      default: return '';
-    }
   };
 
   const handleSliderChange = (e) => {
@@ -469,10 +483,11 @@ function App() {
                 onClick={handleSliderClick}
               >
                 <div className="slider-img-wrapper">
-                  <img src={getImageTypeUrl(sliderRight)} alt="Right Image" className="slider-img" style={sliderZoomEnabled ? sliderZoomStyle : {}} draggable="false" />
+                  {/* Slider uses aligned images for perfect pixel-aligned comparison */}
+                  <img src={getAlignedImageUrl(sliderRight)} alt="Right Image" className="slider-img" style={sliderZoomEnabled ? sliderZoomStyle : {}} draggable="false" />
                 </div>
                 <div className="slider-img-wrapper" style={{ clipPath: `polygon(0 0, ${sliderPos}% 0, ${sliderPos}% 100%, 0 100%)` }}>
-                  <img src={getImageTypeUrl(sliderLeft)} alt="Left Image" className="slider-img" style={sliderZoomEnabled ? sliderZoomStyle : {}} draggable="false" />
+                  <img src={getAlignedImageUrl(sliderLeft)} alt="Left Image" className="slider-img" style={sliderZoomEnabled ? sliderZoomStyle : {}} draggable="false" />
                 </div>
                 <input
                   type="range"
@@ -495,14 +510,15 @@ function App() {
               <div className="image-card">
                 <h3>Degraded</h3>
                 <div className="img-wrapper" ref={el => imgWrapperRefs.current[0] = el} onMouseMove={handleMouseMove} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-                  <img src={paddedImages.degraded || getImageUrl(paths.degraded, currentImage)} style={zoomStyle} alt="Degraded" draggable="false" />
+                  {/* All grid images use aligned-image for consistent dimensions */}
+                  <img src={getAlignedImageUrl('degraded')} style={zoomStyle} alt="Degraded" draggable="false" />
                 </div>
               </div>
 
               <div className="image-card">
                 <h3>VLU Restore</h3>
                 <div className="img-wrapper" ref={el => imgWrapperRefs.current[1] = el} onMouseMove={handleMouseMove} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-                  <img src={paddedImages.vlu || getImageUrl(paths.vlu, currentImage)} style={zoomStyle} alt="VLU" draggable="false" />
+                  <img src={getAlignedImageUrl('vlu')} style={zoomStyle} alt="VLU" draggable="false" />
                 </div>
                 <div className="metrics">
                   {loading ? 'Calculating...' : metrics.vlu ? `PSNR: ${metrics.vlu.psnr} | SSIM: ${metrics.vlu.ssim}` : 'N/A'}
@@ -513,7 +529,7 @@ function App() {
                 <div className="image-card">
                   <h3>BLIP VLU Restore</h3>
                   <div className="img-wrapper" ref={el => imgWrapperRefs.current[2] = el} onMouseMove={handleMouseMove} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-                    <img src={paddedImages.blip || getImageUrl(paths.blip_vlu, currentImage)} style={zoomStyle} alt="BLIP VLU" draggable="false" />
+                    <img src={getAlignedImageUrl('blip')} style={zoomStyle} alt="BLIP VLU" draggable="false" />
                   </div>
                   <div className="metrics">
                     {loading ? 'Calculating...' : metrics.blip ? `PSNR: ${metrics.blip.psnr} | SSIM: ${metrics.blip.ssim}` : 'N/A'}
@@ -524,7 +540,7 @@ function App() {
               <div className="image-card">
                 <h3>Ground Truth</h3>
                 <div className="img-wrapper" ref={el => imgWrapperRefs.current[3] = el} onMouseMove={handleMouseMove} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-                  <img src={paddedImages.gt || getImageUrl(paths.gt, getGTFilename(selectedTask, currentImage))} style={zoomStyle} alt="GT" draggable="false" />
+                  <img src={getAlignedImageUrl('gt')} style={zoomStyle} alt="GT" draggable="false" />
                 </div>
               </div>
 
