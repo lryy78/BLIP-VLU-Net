@@ -15,6 +15,7 @@ env/
 VLU-Net/datasets/
 VLU-Net/output/
 VLU-Net/pretrained_ckpt/
+VLU-Net/blip_vlunet_pretrained_ckpt/
 VLU-Net/ckpt/
 
 # ===== Nested git repository (original upstream clone) =====
