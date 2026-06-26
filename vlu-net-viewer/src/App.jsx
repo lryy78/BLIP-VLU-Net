@@ -34,6 +34,12 @@ function App() {
   const [top10Loading, setTop10Loading] = useState(false);
   const [top10Error, setTop10Error] = useState(null);
 
+  // Search State
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+
   // Slider State
   const [sliderLeft, setSliderLeft] = useState('degraded');
   const [sliderRight, setSliderRight] = useState('vlu');
@@ -591,6 +597,59 @@ function App() {
           >
             📊 Top 10 Mode
           </button>
+        </div>
+
+        {/* Search Section */}
+        <div className="search-section">
+          <label>🔍 Search Image:</label>
+          <input
+            type="text"
+            placeholder="Enter filename..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              if (e.target.value.trim()) {
+                const filtered = imageList.filter(img => 
+                  img.toLowerCase().includes(e.target.value.toLowerCase())
+                );
+                setSearchResults(filtered);
+                setShowSearchResults(true);
+              } else {
+                setSearchResults([]);
+                setShowSearchResults(false);
+              }
+            }}
+            className="search-input"
+          />
+          {showSearchResults && searchResults.length > 0 && (
+            <div className="search-results">
+              {searchResults.slice(0, 10).map((img, idx) => (
+                <div
+                  key={idx}
+                  className={`search-result-item ${currentImage === img ? 'active' : ''}`}
+                  onClick={() => {
+                    setCurrentImage(img);
+                    setSearchQuery('');
+                    setShowSearchResults(false);
+                    setViewMode('shuffle');
+                    fetchMetrics(img, paths);
+                  }}
+                >
+                  {img}
+                </div>
+              ))}
+              {searchResults.length > 10 && (
+                <div className="search-results-more">
+                  +{searchResults.length - 10} more results
+                </div>
+              )}
+            </div>
+          )}
+          {showSearchResults && searchResults.length === 0 && searchQuery.trim() && (
+            <div className="search-no-results">
+              No images found
+            </div>
+          )}
         </div>
 
         {viewMode === 'shuffle' ? (
