@@ -612,6 +612,49 @@ body {
   color: var(--text-main);
 }
 
+/* Type Filter Bar */
+.type-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 24px;
+  background: rgba(0, 0, 0, 0.2);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.filter-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 5px;
+}
+
+.type-filter-btn {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.type-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-main);
+  border-color: var(--text-muted);
+}
+
+.type-filter-btn.active {
+  background: var(--accent);
+  color: white;
+  border-color: var(--accent);
+}
+
 .close-btn {
   background: transparent;
   border: none;
@@ -733,11 +776,57 @@ body {
 .th-val { width: 12%; }
 .th-delta { width: 12%; }
 
+/* Group headers */
+.th-group-header {
+  text-align: center;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  padding: 10px;
+}
+
+.th-vlu-header {
+  background: rgba(59, 130, 246, 0.15);
+  color: #60a5fa;
+  border-bottom: 2px solid #3b82f6;
+}
+
+.th-blip-header {
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border-bottom: 2px solid #10b981;
+}
+
+.th-delta-header {
+  background: rgba(148, 163, 184, 0.15);
+  color: #cbd5e1;
+  border-bottom: 2px solid #64748b;
+}
+
 /* Left-align text columns */
 .comparison-table td:nth-child(1),
 .comparison-table td:nth-child(2),
 .comparison-table td:nth-child(3) {
   text-align: left;
+}
+
+/* Vertical lines for Task, Dataset, Type columns */
+.comparison-table td:nth-child(1) {
+  border-right: 2px solid var(--border);
+}
+
+.comparison-table td:nth-child(2) {
+  border-right: 1px solid var(--border);
+}
+
+.comparison-table th:nth-child(1),
+.comparison-table th:nth-child(2),
+.comparison-table th:nth-child(3) {
+  border-right: 2px solid var(--border);
+}
+
+.comparison-table th:nth-child(2) {
+  border-right: 1px solid var(--border);
 }
 
 /* Center-align numeric value columns */
@@ -759,6 +848,16 @@ body {
   font-family: 'JetBrains Mono', 'Fira Code', monospace;
   font-weight: 600;
   text-align: right;
+}
+
+.val-better {
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.val-worse {
+  color: #ef4444;
+  background: rgba(239, 68, 68, 0.08);
 }
 
 /* Delta cells */

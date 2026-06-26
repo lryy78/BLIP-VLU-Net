@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { getEnrichedData, taskLabels } from '../comparisonData';
 
 /**
@@ -44,13 +44,66 @@ export default function ComparisonTable({ onClose }) {
   const grouped = groupData(data);
   const taskOrder = ['NHRBL', 'NHR', 'N', 'H', 'R', 'B', 'L'];
 
+  // Extract unique types from data
+  const allTypes = useMemo(() => {
+    const types = new Set();
+    data.forEach(row => types.add(row.type));
+    return Array.from(types).sort();
+  }, [data]);
+
   // Collapse state: default all collapsed
   const [collapsed, setCollapsed] = useState(
     Object.fromEntries(taskOrder.map(t => [t, true]))
   );
 
+  const [selectedTypes, setSelectedTypes] = useState([]);
+
   const toggleSection = (task) => {
     setCollapsed(prev => ({ ...prev, [task]: !prev[task] }));
+  };
+
+  const handleTypeFilter = (type) => {
+    if (selectedTypes.includes(type)) {
+      // Deselect this type
+      const newSelected = selectedTypes.filter(t => t !== type);
+      setSelectedTypes(newSelected);
+      
+      if (newSelected.length === 0) {
+        // No types selected - collapse all
+        setCollapsed(Object.fromEntries(taskOrder.map(t => [t, true])));
+      } else {
+        // Update collapsed state based on remaining selected types
+        const newCollapsed = {};
+        taskOrder.forEach(task => {
+          const taskRows = grouped[task] || [];
+          const hasSelectedType = newSelected.some(selectedType => 
+            taskRows.some(row => row.type === selectedType)
+          );
+          newCollapsed[task] = !hasSelectedType;
+        });
+        setCollapsed(newCollapsed);
+      }
+    } else {
+      // Select this type (add to selection)
+      const newSelected = [...selectedTypes, type];
+      setSelectedTypes(newSelected);
+      
+      // Expand tasks that have any of the selected types
+      const newCollapsed = {};
+      taskOrder.forEach(task => {
+        const taskRows = grouped[task] || [];
+        const hasSelectedType = newSelected.some(selectedType => 
+          taskRows.some(row => row.type === selectedType)
+        );
+        newCollapsed[task] = !hasSelectedType;
+      });
+      setCollapsed(newCollapsed);
+    }
+  };
+
+  const clearFilter = () => {
+    setSelectedTypes([]);
+    setCollapsed(Object.fromEntries(taskOrder.map(t => [t, true])));
   };
 
   return (
@@ -61,6 +114,26 @@ export default function ComparisonTable({ onClose }) {
           <button className="close-btn" onClick={onClose}>✕</button>
         </div>
 
+        {/* Type Filter Buttons */}
+        <div className="type-filter-bar">
+          <span className="filter-label">Filter by Type:</span>
+          <button 
+            className={`type-filter-btn ${selectedTypes.length === 0 ? 'active' : ''}`}
+            onClick={clearFilter}
+          >
+            Reset
+          </button>
+          {allTypes.map(type => (
+            <button
+              key={type}
+              className={`type-filter-btn ${selectedTypes.includes(type) ? 'active' : ''}`}
+              onClick={() => handleTypeFilter(type)}
+            >
+              {type}
+            </button>
+          ))}
+        </div>
+
         <div className="comparison-modal-body">
           <table className="comparison-table">
             <thead>
@@ -68,10 +141,18 @@ export default function ComparisonTable({ onClose }) {
                 <th className="th-task">Task</th>
                 <th className="th-dataset">Dataset</th>
                 <th className="th-type">Type</th>
-                <th className="th-val">VLU PSNR</th>
-                <th className="th-val">VLU SSIM</th>
-                <th className="th-val">BLIP-VLU PSNR</th>
-                <th className="th-val">BLIP-VLU SSIM</th>
+                <th colSpan={2} className="th-group-header th-vlu-header">VLU-Net</th>
+                <th colSpan={2} className="th-group-header th-blip-header">BLIP-VLU-Net</th>
+                <th colSpan={2} className="th-group-header th-delta-header">Difference</th>
+              </tr>
+              <tr>
+                <th className="th-task"></th>
+                <th className="th-dataset"></th>
+                <th className="th-type"></th>
+                <th className="th-val">PSNR</th>
+                <th className="th-val">SSIM</th>
+                <th className="th-val">PSNR</th>
+                <th className="th-val">SSIM</th>
                 <th className="th-delta">PSNR Δ</th>
                 <th className="th-delta">SSIM Δ</th>
               </tr>
@@ -100,24 +181,39 @@ export default function ComparisonTable({ onClose }) {
                       <tr className="section-collapsed" style={{ display: 'none' }} />
                     )}
 
-                    {/* Data rows */}
-                    {visibleRows.map((row, idx) => (
-                      <tr key={`${task}-${idx}`} className="data-row">
-                        <td>{taskLabels[row.task] || row.task}</td>
-                        <td>{row.dataset}</td>
-                        <td>{row.type}</td>
-                        <td className="val-cell">{fmt(row.vlu_psnr, 2)}</td>
-                        <td className="val-cell">{fmt(row.vlu_ssim, 4)}</td>
-                        <td className="val-cell">{fmt(row.blip_psnr, 2)}</td>
-                        <td className="val-cell">{fmt(row.blip_ssim, 4)}</td>
-                        <td className={`delta-cell ${deltaClass(row.psnr_delta)}`}>
-                          {row.psnr_delta !== null ? fmt(row.psnr_delta, 4) : 'N/A'}{deltaArrow(row.psnr_delta)}
-                        </td>
-                        <td className={`delta-cell ${deltaClass(row.ssim_delta)}`}>
-                          {row.ssim_delta !== null ? fmt(row.ssim_delta, 4) : 'N/A'}{deltaArrow(row.ssim_delta)}
-                        </td>
-                      </tr>
-                    ))}
+                    {/* Data rows - filter by selected types */}
+                    {visibleRows
+                      .filter(row => selectedTypes.length === 0 || selectedTypes.includes(row.type))
+                      .map((row, idx) => {
+                        const vluBetterPsnr = row.vlu_psnr > row.blip_psnr;
+                        const vluBetterSsim = row.vlu_ssim > row.blip_ssim;
+                        
+                        return (
+                          <tr key={`${task}-${idx}`} className="data-row">
+                            <td>{taskLabels[row.task] || row.task}</td>
+                            <td>{row.dataset}</td>
+                            <td>{row.type}</td>
+                            <td className={`val-cell ${vluBetterPsnr ? 'val-better' : 'val-worse'}`}>
+                              {fmt(row.vlu_psnr, 2)}
+                            </td>
+                            <td className={`val-cell ${vluBetterSsim ? 'val-better' : 'val-worse'}`}>
+                              {fmt(row.vlu_ssim, 4)}
+                            </td>
+                            <td className={`val-cell ${!vluBetterPsnr ? 'val-better' : 'val-worse'}`}>
+                              {fmt(row.blip_psnr, 2)}
+                            </td>
+                            <td className={`val-cell ${!vluBetterSsim ? 'val-better' : 'val-worse'}`}>
+                              {fmt(row.blip_ssim, 4)}
+                            </td>
+                            <td className={`delta-cell ${deltaClass(row.psnr_delta)}`}>
+                              {row.psnr_delta !== null ? fmt(row.psnr_delta, 4) : 'N/A'}{deltaArrow(row.psnr_delta)}
+                            </td>
+                            <td className={`delta-cell ${deltaClass(row.ssim_delta)}`}>
+                              {row.ssim_delta !== null ? fmt(row.ssim_delta, 4) : 'N/A'}{deltaArrow(row.ssim_delta)}
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </React.Fragment>
                 );
               })}
