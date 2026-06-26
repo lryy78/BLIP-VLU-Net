@@ -24,10 +24,15 @@ function App() {
   const [imageList, setImageList] = useState([]);
   const [currentImage, setCurrentImage] = useState(null);
   const [paths, setPaths] = useState(null);
+  const [top10Images, setTop10Images] = useState([]);
+  const [viewMode, setViewMode] = useState('shuffle'); // 'shuffle' or 'top10'
+  const [top10MetricsCache, setTop10MetricsCache] = useState({}); // Cache PSNR from server
 
   const [metrics, setMetrics] = useState({ vlu: { psnr: 'N/A', ssim: 'N/A' }, blip: { psnr: 'N/A', ssim: 'N/A' } });
   const [loading, setLoading] = useState(false);
   const [imageStatus, setImageStatus] = useState('Loading images...');
+  const [top10Loading, setTop10Loading] = useState(false);
+  const [top10Error, setTop10Error] = useState(null);
 
   // Slider State
   const [sliderLeft, setSliderLeft] = useState('degraded');
@@ -80,8 +85,13 @@ function App() {
       }
     }
 
-    fetchImages();
-  }, [selectedTask, dataset, noiseLevel]);
+    // Only fetch regular images in shuffle mode
+    if (viewMode === 'shuffle') {
+      fetchImages();
+    } else if (viewMode === 'top10') {
+      fetchTop10Images();
+    }
+  }, [selectedTask, dataset, noiseLevel, viewMode]);
 
   const fetchImages = async () => {
     setImageStatus('Loading images...');
@@ -122,6 +132,72 @@ function App() {
 
     // Fetch metrics
     fetchMetrics(selected, currentPaths);
+  };
+
+  const fetchTop10Images = async () => {
+    setTop10Loading(true);
+    setImageStatus('Loading top 10 images...');
+    setCurrentImage(null);
+    setTop10MetricsCache({});
+    try {
+      const url = new URL(`${API_BASE}/top10`);
+      url.search = new URLSearchParams({ task: selectedTask, dataset, level: noiseLevel });
+      const res = await fetch(url);
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.details || errorData.error || `Request failed with ${res.status}`);
+      }
+      const data = await res.json();
+      
+      const files = data.files || [];
+      setTop10Images(files);
+      setPaths(data.paths || null);
+      
+      // Build cache of server-calculated PSNR values
+      const cache = {};
+      for (const item of files) {
+        cache[item.filename] = {
+          vlu_psnr: item.vlu_psnr,
+          blip_psnr: item.blip_psnr
+        };
+      }
+      setTop10MetricsCache(cache);
+      
+      if (files.length > 0) {
+        // Select the first image (biggest difference)
+        const firstImage = files[0].filename;
+        setCurrentImage(firstImage);
+        // Calculate SSIM for the first image using cached PSNR values
+        calculateSSIMOnly(firstImage, data.paths, {
+          vlu_psnr: files[0].vlu_psnr,
+          blip_psnr: files[0].blip_psnr
+        });
+        setImageStatus(`Loaded ${files.length} images with biggest PSNR differences.`);
+      } else {
+        setCurrentImage(null);
+        setImageStatus('No top 10 images found.');
+      }
+    } catch (err) {
+      console.error('Error fetching top 10 images:', err);
+      setTop10Images([]);
+      setCurrentImage(null);
+      setPaths(null);
+      setImageStatus(`Could not load top 10 images: ${err.message}. Make sure the backend server is running.`);
+    } finally {
+      setTop10Loading(false);
+    }
+  };
+
+  const selectTop10Image = (imageData) => {
+    setCurrentImage(imageData.filename);
+    // Use cached server-calculated PSNR values, but calculate SSIM on frontend
+    const cached = top10MetricsCache[imageData.filename];
+    if (cached) {
+      // Calculate SSIM on frontend while using server PSNR values
+      calculateSSIMOnly(imageData.filename, paths, cached);
+    } else {
+      fetchMetrics(imageData.filename, paths);
+    }
   };
 
   const loadImage = (url) => new Promise((resolve, reject) => {
@@ -253,6 +329,85 @@ function App() {
     } catch (e) {
       console.error('Error calculating metrics:', e);
       setMetrics({ vlu: { psnr: 'Err: ' + e.message, ssim: 'Err' }, blip: { psnr: 'Err: ' + e.message, ssim: 'Err' } });
+    }
+    setLoading(false);
+  };
+
+  // Calculate only SSIM (PSNR comes from server cache)
+  const calculateSSIMOnly = async (filename, currentPaths, cachedPsnr) => {
+    setLoading(true);
+    try {
+      const imgFilename = filename;
+      const imgPaths = currentPaths;
+      if (!imgFilename || !imgPaths) {
+        throw new Error('No filename or paths available');
+      }
+
+      const gtUrl = getAlignedImageUrl('gt', imgPaths, imgFilename);
+      const gtImg = await loadImage(gtUrl);
+
+      const tryLoadImage = async (url) => {
+        if (!url) return null;
+        try {
+          return await loadImage(url);
+        } catch (error) {
+          console.warn(error.message);
+          return null;
+        }
+      };
+
+      const vluImg = await tryLoadImage(getAlignedImageUrl('vlu', imgPaths, imgFilename));
+      const blipImg = await tryLoadImage(getAlignedImageUrl('blip', imgPaths, imgFilename));
+
+      const images = [gtImg];
+      if (vluImg) images.push(vluImg);
+      if (blipImg) images.push(blipImg);
+
+      const minW = Math.min(...images.map(img => img.width));
+      const minH = Math.min(...images.map(img => img.height));
+
+      const ensureSize = (img, targetW, targetH) => {
+        if (img.width === targetW && img.height === targetH) return img;
+        const canvas = document.createElement('canvas');
+        canvas.width = targetW;
+        canvas.height = targetH;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, (targetW - img.width) / 2, (targetH - img.height) / 2);
+        const result = new Image();
+        result.src = canvas.toDataURL('image/jpeg', 0.95);
+        return new Promise(resolve => { result.onload = () => resolve(result); });
+      };
+
+      const [gtFinal, vluFinal, blipFinal] = await Promise.all([
+        gtImg,
+        vluImg ? ensureSize(vluImg, minW, minH) : null,
+        blipImg ? ensureSize(blipImg, minW, minH) : null
+      ]);
+
+      const gtData = getImageData(gtFinal);
+      const unavailableMetrics = { psnr: 'N/A', ssim: 'N/A' };
+
+      let vluMetrics = unavailableMetrics;
+      if (vluFinal) {
+        const vluData = getImageData(vluFinal);
+        const ssimRes = ssim(vluData, gtData);
+        vluMetrics = { psnr: cachedPsnr.vlu_psnr.toFixed(2), ssim: ssimRes.mssim.toFixed(4) };
+      }
+
+      let blipMetrics = unavailableMetrics;
+      if (blipFinal) {
+        const blipData = getImageData(blipFinal);
+        const ssimRes = ssim(blipData, gtData);
+        blipMetrics = { psnr: cachedPsnr.blip_psnr.toFixed(2), ssim: ssimRes.mssim.toFixed(4) };
+      }
+
+      setMetrics({ vlu: vluMetrics, blip: blipMetrics });
+    } catch (e) {
+      console.error('Error calculating SSIM:', e);
+      setMetrics({
+        vlu: { psnr: cachedPsnr.vlu_psnr.toFixed(2), ssim: 'Err' },
+        blip: { psnr: cachedPsnr.blip_psnr.toFixed(2), ssim: 'Err' }
+      });
     }
     setLoading(false);
   };
@@ -423,9 +578,45 @@ function App() {
           </div>
         )}
 
-        <button className="shuffle-btn" onClick={() => pickRandomImage()} disabled={imageList.length === 0}>
-          <span>&#x1F500;</span> Shuffle Image
-        </button>
+        <div className="mode-toggle">
+          <button 
+            className={`mode-btn ${viewMode === 'shuffle' ? 'active' : ''}`}
+            onClick={() => setViewMode('shuffle')}
+          >
+            🎲 Shuffle Mode
+          </button>
+          <button 
+            className={`mode-btn ${viewMode === 'top10' ? 'active' : ''}`}
+            onClick={() => setViewMode('top10')}
+          >
+            📊 Top 10 Mode
+          </button>
+        </div>
+
+        {viewMode === 'shuffle' ? (
+          <button className="shuffle-btn" onClick={() => pickRandomImage()} disabled={imageList.length === 0}>
+            <span>&#x1F500;</span> Shuffle Image
+          </button>
+        ) : (
+          <div className="top10-selector">
+            <label>Select Image (Top 10 by PSNR Difference):</label>
+            <select 
+              value={currentImage || ''} 
+              onChange={(e) => {
+                const selected = top10Images.find(img => img.filename === e.target.value);
+                if (selected) selectTop10Image(selected);
+              }}
+              disabled={top10Images.length === 0}
+            >
+              <option value="">-- Select an image --</option>
+              {top10Images.map((img, idx) => (
+                <option key={img.filename} value={img.filename}>
+                  #{idx + 1}: {img.filename} (Diff: {img.difference.toFixed(2)} dB)
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         <button className="compare-btn" onClick={() => setShowComparison(true)}>
           <span>&#x1F4CA;</span> Compare Results
@@ -434,7 +625,9 @@ function App() {
 
       {/* Main Content */}
       <div className="main-content">
-        {!currentImage ? (
+        {viewMode === 'top10' && top10Loading ? (
+          <div className="empty-state">⏳ Calculating top 10 images... This may take a moment.</div>
+        ) : !currentImage ? (
           <div className="empty-state">{imageStatus}</div>
         ) : (
           <div className="viewer">

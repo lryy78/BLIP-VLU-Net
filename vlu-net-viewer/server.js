@@ -244,6 +244,165 @@ app.get('/api/aligned-image', async (req, res) => {
   }
 });
 
+// Helper function to crop image to base-16 alignment (same as frontend logic)
+const alignImage = async (imgPath) => {
+  const BASE = 16;
+  const metadata = await sharp(imgPath).metadata();
+  const h = metadata.height;
+  const w = metadata.width;
+  
+  const cropH = h % BASE;
+  const cropW = w % BASE;
+  
+  // If already aligned, return original
+  if (cropH === 0 && cropW === 0) {
+    return imgPath;
+  }
+  
+  const left = Math.floor(cropW / 2);
+  const top = Math.floor(cropH / 2);
+  const extractWidth = w - cropW;
+  const extractHeight = h - cropH;
+  
+  // Create temporary aligned image
+  const tempPath = imgPath + '.aligned.jpg';
+  await sharp(imgPath)
+    .extract({ left, top, width: extractWidth, height: extractHeight })
+    .jpeg({ quality: 95 })
+    .toFile(tempPath);
+  
+  return tempPath;
+};
+
+// Helper function to calculate PSNR between two images (aligned to base-16, full resolution)
+// Uses raw pixel data without resize or re-compression to match frontend calculation
+const calculatePSNR = async (imgPath1, imgPath2) => {
+  try {
+    // Align both images to base-16 (same as frontend)
+    const [aligned1, aligned2] = await Promise.all([
+      alignImage(imgPath1),
+      alignImage(imgPath2)
+    ]);
+
+    // Get raw pixel data at full resolution (no resize, no JPEG re-compression)
+    const [img1, img2] = await Promise.all([
+      sharp(aligned1).raw().toBuffer(),
+      sharp(aligned2).raw().toBuffer()
+    ]);
+
+    // Clean up temporary aligned images
+    if (aligned1 !== imgPath1) {
+      try { fs.unlinkSync(aligned1); } catch(e) {}
+    }
+    if (aligned2 !== imgPath2) {
+      try { fs.unlinkSync(aligned2); } catch(e) {}
+    }
+
+    const len = img1.length;
+    if (len !== img2.length) {
+      return null;
+    }
+
+    let mse = 0;
+    for (let i = 0; i < len; i++) {
+      const diff = img1[i] - img2[i];
+      mse += diff * diff;
+    }
+    mse /= len;
+    
+    if (mse === 0) return 100;
+    return (10 * Math.log10((255 * 255) / mse)).toFixed(2);
+  } catch (err) {
+    console.error('PSNR calculation error:', err.message, 'for', imgPath1, 'vs', imgPath2);
+    return null;
+  }
+};
+
+// Endpoint to get top 10 images with biggest PSNR difference between VLU and BLIP (optimized for speed)
+app.get('/api/top10', async (req, res) => {
+  const { task, dataset, level } = req.query;
+  let paths = null;
+  if (TASKS[task]) {
+    paths = TASKS[task];
+  } else if (NOISE_TASKS[task]) {
+    paths = NOISE_TASKS[task].paths(dataset, level);
+  }
+
+  if (!paths) {
+    return res.status(404).json({ error: 'Task not found' });
+  }
+
+  try {
+    const files = fs.readdirSync(paths.degraded).filter(f => f.match(/\.(png|jpg|jpeg)$/i));
+    console.log(`[top10] Task: ${task}, Found ${files.length} files`);
+    const results = [];
+    const BATCH_SIZE = 10; // Process in batches for better performance
+
+    // Process images in batches
+    for (let i = 0; i < files.length; i += BATCH_SIZE) {
+      const batch = files.slice(i, i + BATCH_SIZE);
+      const batchResults = await Promise.all(batch.map(async (file) => {
+        const vluPath = path.join(paths.vlu, file);
+        const blipPath = path.join(paths.blip_vlu, file);
+        const gtFile = getGTFilename(task, file, dataset);
+        const gtPath = path.join(paths.gt, gtFile);
+
+        const vluExists = fs.existsSync(vluPath);
+        const blipExists = fs.existsSync(blipPath);
+        const gtExists = fs.existsSync(gtPath);
+        
+        if (!vluExists || !blipExists || !gtExists) {
+          if (i === 0) { // Only log for first batch to avoid spam
+            console.log(`[top10] Missing files for ${file}: vlu=${vluExists}, blip=${blipExists}, gt=${gtExists}`);
+          }
+          return null;
+        }
+
+        const [vluPsnr, blipPsnr] = await Promise.all([
+          calculatePSNR(gtPath, vluPath),
+          calculatePSNR(gtPath, blipPath)
+        ]);
+
+        if (vluPsnr && blipPsnr) {
+          const diff = Math.abs(parseFloat(vluPsnr) - parseFloat(blipPsnr));
+          return {
+            filename: file,
+            vlu_psnr: parseFloat(vluPsnr),
+            blip_psnr: parseFloat(blipPsnr),
+            difference: diff
+          };
+        }
+        return null;
+      }));
+
+      // Add non-null results
+      results.push(...batchResults.filter(r => r !== null));
+    }
+
+    console.log(`[top10] Calculated PSNR for ${results.length} images`);
+    
+    // Sort by difference (biggest first) and take top 10
+    results.sort((a, b) => b.difference - a.difference);
+    const top10 = results.slice(0, 10);
+
+    console.log(`[top10] Returning top ${top10.length} images`);
+    res.json({ files: top10, paths });
+  } catch (err) {
+    console.error('Error in /api/top10:', err);
+    res.status(500).json({ error: 'Could not calculate top 10 images', details: err.message });
+  }
+});
+
+// Helper function to get GT filename (same logic as in frontend)
+function getGTFilename(task, filename, dataset) {
+  if (task === 'Single haze' || ((task === '3tasks' || task === '5tasks') && dataset === 'SOTS_outdoors')) {
+    return filename.split('_')[0] + '.png';
+  } else if (task === 'Single rain' || ((task === '3tasks' || task === '5tasks') && dataset === 'Rain100L')) {
+    return filename.replace('rain-', 'norain-');
+  }
+  return filename;
+}
+
 const PORT = 3001;
 const server = app.listen(PORT, () => {
   console.log(`Backend server running on http://localhost:${PORT}`);
