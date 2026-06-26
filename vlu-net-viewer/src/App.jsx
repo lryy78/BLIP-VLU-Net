@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ssim } from 'ssim.js';
 import './App.css';
+import ComparisonTable from './components/ComparisonTable';
 
 const API_BASE = 'http://localhost:3001/api';
 
@@ -45,6 +46,9 @@ function App() {
   const [sliderZoomStyle, setSliderZoomStyle] = useState({ transform: 'scale(1)', transformOrigin: 'center center' });
   const sliderZoomScaleRef = useRef(1);
   const sliderRef = useRef(null);
+
+  // Comparison table modal state
+  const [showComparison, setShowComparison] = useState(false);
 
   useEffect(() => {
     // Reset dataset/level when task changes
@@ -422,6 +426,10 @@ function App() {
         <button className="shuffle-btn" onClick={() => pickRandomImage()} disabled={imageList.length === 0}>
           <span>&#x1F500;</span> Shuffle Image
         </button>
+
+        <button className="compare-btn" onClick={() => setShowComparison(true)}>
+          <span>&#x1F4CA;</span> Compare Results
+        </button>
       </div>
 
       {/* Main Content */}
@@ -548,6 +556,7 @@ function App() {
           </div>
         )}
       </div>
+      {showComparison && <ComparisonTable onClose={() => setShowComparison(false)} />}
     </div>
   );
 }
