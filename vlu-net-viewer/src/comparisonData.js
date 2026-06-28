@@ -25,19 +25,19 @@ const comparisonData = [
   // ──────────────────────────────────────────────
   // 3-task model (NHR) – Noise + Haze + Rain
   // ──────────────────────────────────────────────
-  { task: 'NHR',     dataset: 'CBSD68',        type: 'Denoise15',    vlu_psnr: 34.04, vlu_ssim: 0.9342, blip_psnr: null, blip_ssim: null },
-  { task: 'NHR',     dataset: 'CBSD68',        type: 'Denoise25',    vlu_psnr: 31.45, vlu_ssim: 0.8921, blip_psnr: null, blip_ssim: null },
-  { task: 'NHR',     dataset: 'CBSD68',        type: 'Denoise50',    vlu_psnr: 28.21, vlu_ssim: 0.8045, blip_psnr: null, blip_ssim: null },
+  { task: 'NHR',     dataset: 'CBSD68',        type: 'Denoise15',    vlu_psnr: 34.04, vlu_ssim: 0.9342, blip_psnr: 34.09, blip_ssim: 0.9348 },
+  { task: 'NHR',     dataset: 'CBSD68',        type: 'Denoise25',    vlu_psnr: 31.45, vlu_ssim: 0.8921, blip_psnr: 31.44, blip_ssim: 0.8915 },
+  { task: 'NHR',     dataset: 'CBSD68',        type: 'Denoise50',    vlu_psnr: 28.21, vlu_ssim: 0.8045, blip_psnr: 28.18, blip_ssim: 0.8025 },
 
-  { task: 'NHR',     dataset: 'SOTS_outdoors', type: 'Dehazing',     vlu_psnr: 30.71, vlu_ssim: 0.9793, blip_psnr: null, blip_ssim: null },
-  { task: 'NHR',     dataset: 'Rain100L',      type: 'Deraining',    vlu_psnr: 38.86, vlu_ssim: 0.9834, blip_psnr: null, blip_ssim: null },
+  { task: 'NHR',     dataset: 'SOTS_outdoors', type: 'Dehazing',     vlu_psnr: 30.71, vlu_ssim: 0.9793, blip_psnr: 30.92, blip_ssim: 0.9798 },
+  { task: 'NHR',     dataset: 'Rain100L',      type: 'Deraining',    vlu_psnr: 38.86, vlu_ssim: 0.9834, blip_psnr: 38.42, blip_ssim: 0.9824 },
 
-  { task: 'NHR',     dataset: 'CBSD68',        type: 'Denoise_rand', vlu_psnr: 30.95, vlu_ssim: 0.8740, blip_psnr: null, blip_ssim: null },
-  { task: 'NHR',     dataset: 'Urban100_HR',   type: 'Denoise_rand', vlu_psnr: 31.65, vlu_ssim: 0.9080, blip_psnr: null, blip_ssim: null },
+  { task: 'NHR',     dataset: 'CBSD68',        type: 'Denoise_rand', vlu_psnr: 30.95, vlu_ssim: 0.8740, blip_psnr: 30.94, blip_ssim: 0.8731 },
+  { task: 'NHR',     dataset: 'Urban100_HR',   type: 'Denoise_rand', vlu_psnr: 31.65, vlu_ssim: 0.9080, blip_psnr: 31.70, blip_ssim: 0.9130 },
 
-  { task: 'NHR',     dataset: 'Urban100_HR',   type: 'Denoise15',    vlu_psnr: 34.14, vlu_ssim: 0.9430, blip_psnr: null, blip_ssim: null },
-  { task: 'NHR',     dataset: 'Urban100_HR',   type: 'Denoise25',    vlu_psnr: 31.77, vlu_ssim: 0.9158, blip_psnr: null, blip_ssim: null },
-  { task: 'NHR',     dataset: 'Urban100_HR',   type: 'Denoise50',    vlu_psnr: 28.57, vlu_ssim: 0.8556, blip_psnr: null, blip_ssim: null },
+  { task: 'NHR',     dataset: 'Urban100_HR',   type: 'Denoise15',    vlu_psnr: 34.14, vlu_ssim: 0.9430, blip_psnr: 34.22, blip_ssim: 0.9472 },
+  { task: 'NHR',     dataset: 'Urban100_HR',   type: 'Denoise25',    vlu_psnr: 31.77, vlu_ssim: 0.9158, blip_psnr: 31.85, blip_ssim: 0.9206 },
+  { task: 'NHR',     dataset: 'Urban100_HR',   type: 'Denoise50',    vlu_psnr: 28.57, vlu_ssim: 0.8556, blip_psnr: 28.54, blip_ssim: 0.8618 },
 
 
 
