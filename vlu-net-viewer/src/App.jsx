@@ -1014,7 +1014,7 @@ function App() {
                   <select value={sliderLeft} onChange={e => setSliderLeft(e.target.value)}>
                     <option value="degraded">Degraded</option>
                     <option value="vlu">VLU Restore</option>
-                    {paths.blip_vlu && <option value="blip">BLIP VLU Restore</option>}
+                    {paths.blip_vlu && <option value="blip">BLIP VLU Restore (ours)</option>}
                     <option value="gt">Ground Truth</option>
                   </select>
                 </div>
@@ -1023,7 +1023,7 @@ function App() {
                   <select value={sliderRight} onChange={e => setSliderRight(e.target.value)}>
                     <option value="degraded">Degraded</option>
                     <option value="vlu">VLU Restore</option>
-                    {paths.blip_vlu && <option value="blip">BLIP VLU Restore</option>}
+                    {paths.blip_vlu && <option value="blip">BLIP VLU Restore (ours)</option>}
                     <option value="gt">Ground Truth</option>
                   </select>
                 </div>
@@ -1100,10 +1100,10 @@ function App() {
               </div>
 
               {paths.blip_vlu && (
-                <div className="image-card">
-                  <h3>BLIP VLU Restore</h3>
+                <div className="image-card blip-card">
+                  <h3>BLIP VLU Restore (ours)</h3>
                   <div className="img-wrapper" ref={el => imgWrapperRefs.current[2] = el} onMouseMove={handleMouseMove} onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
-                    <img src={getAlignedImageUrl('blip')} style={zoomStyle} alt="BLIP VLU" draggable="false" />
+                    <img src={getAlignedImageUrl('blip')} style={zoomStyle} alt="BLIP VLU (ours)" draggable="false" />
                   </div>
                   <div className="metrics">
                     {loading ? 'Calculating...' : metrics.blip ? `PSNR: ${metrics.blip.psnr} | SSIM: ${metrics.blip.ssim}` : 'N/A'}

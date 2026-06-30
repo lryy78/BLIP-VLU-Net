@@ -142,7 +142,7 @@ export default function ComparisonTable({ onClose }) {
                 <th className="th-dataset">Dataset</th>
                 <th className="th-type">Type</th>
                 <th colSpan={2} className="th-group-header th-vlu-header">VLU-Net</th>
-                <th colSpan={2} className="th-group-header th-blip-header">BLIP-VLU-Net</th>
+                <th colSpan={2} className="th-group-header th-blip-header">BLIP-VLU-Net (ours)</th>
                 <th colSpan={2} className="th-group-header th-delta-header">Difference</th>
               </tr>
               <tr>

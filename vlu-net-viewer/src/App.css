@@ -377,6 +377,35 @@ body {
   color: var(--text-main);
 }
 
+/* BLIP VLU highlight - our method */
+.image-card.blip-card {
+  border: 2px solid #f59e0b;
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.15), 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  position: relative;
+}
+
+.image-card.blip-card h3 {
+  color: #f59e0b;
+}
+
+.image-card.blip-card h3::after {
+  content: " ★ OURS";
+  font-size: 0.7rem;
+  background: #f59e0b;
+  color: #0f172a;
+  padding: 2px 8px;
+  border-radius: 4px;
+  margin-left: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  vertical-align: middle;
+}
+
+.image-card.blip-card .metrics {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
 .img-wrapper {
   position: relative;
   width: 100%;
