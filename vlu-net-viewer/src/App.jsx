@@ -60,11 +60,37 @@ function App() {
   const [selectedDegradation, setSelectedDegradation] = useState('denoise_15');
   const fileInputRef = useRef(null);
 
+  // Get available degradation types - always show all options for upload feature
+  const getAvailableDegradations = () => {
+    return [
+      { value: 'denoise_15', label: 'Denoise' },
+      { value: 'derain', label: 'Rain Removal' },
+      { value: 'dehaze', label: 'Haze Removal' },
+      { value: 'deblur', label: 'Deblur' },
+      { value: 'delowlight', label: 'Lowlight Enhancement' },
+      { value: '3task', label: '3Task Model (NHR)' },
+      { value: '5task', label: '5Task Model (NHRBL)' }
+    ];
+  };
+
+  const availableDegradations = getAvailableDegradations();
+
   // Upload viewer zoom state
   const [uploadZoomStyle, setUploadZoomStyle] = useState({ transform: 'scale(1)', transformOrigin: 'center center' });
   const uploadZoomScaleRef = useRef(1);
   const [uploadZoomEnabled, setUploadZoomEnabled] = useState(false);
   const uploadImgRefs = useRef([]);
+  
+  // Upload zoom wheel handler
+  const handleUploadWheel = (e) => {
+    if (!uploadZoomEnabled) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const delta = e.deltaY < 0 ? 0.5 : -0.5;
+    const newScale = Math.min(Math.max(uploadZoomScaleRef.current + delta, 1), 8);
+    uploadZoomScaleRef.current = newScale;
+    setUploadZoomStyle(prev => ({ ...prev, transform: `scale(${newScale})` }));
+  };
 
   // Slider Zoom State
   const [sliderZoomEnabled, setSliderZoomEnabled] = useState(false);
@@ -114,6 +140,7 @@ function App() {
       const formData = new FormData();
       formData.append('image', blob, 'uploaded_image.png');
       formData.append('degradationType', selectedDegradation);
+      formData.append('task', selectedTask);
 
       const res = await fetch(`${API_BASE}/restore`, {
         method: 'POST',
@@ -168,6 +195,8 @@ function App() {
       setDataset('');
       setNoiseLevel('');
     }
+    // Close upload section when switching tasks
+    setShowUploadSection(false);
   }, [selectedTask]);
 
   useEffect(() => {
@@ -205,11 +234,11 @@ function App() {
         throw new Error(errorData.details || errorData.error || `Request failed with ${res.status}`);
       }
       const data = await res.json();
-      
+
       const files = data.files || [];
       setImageList(files);
       setPaths(data.paths || null);
-      
+
       if (files.length > 0) {
         pickRandomImage(files, data.paths);
       } else {
@@ -249,11 +278,11 @@ function App() {
         throw new Error(errorData.details || errorData.error || `Request failed with ${res.status}`);
       }
       const data = await res.json();
-      
+
       const files = data.files || [];
       setTop10Images(files);
       setPaths(data.paths || null);
-      
+
       // Build cache of server-calculated PSNR values
       const cache = {};
       for (const item of files) {
@@ -263,7 +292,7 @@ function App() {
         };
       }
       setTop10MetricsCache(cache);
-      
+
       if (files.length > 0) {
         // Select the first image (biggest difference)
         const firstImage = files[0].filename;
@@ -605,6 +634,16 @@ function App() {
       setSliderZoomStyle(prev => ({ ...prev, transform: `scale(${newScale})` }));
     };
 
+    const uploadHandler = (e) => {
+      if (!uploadZoomEnabled) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const delta = e.deltaY < 0 ? 0.5 : -0.5;
+      const newScale = Math.min(Math.max(uploadZoomScaleRef.current + delta, 1), 8);
+      uploadZoomScaleRef.current = newScale;
+      setUploadZoomStyle(prev => ({ ...prev, transform: `scale(${newScale})` }));
+    };
+
     const refs = imgWrapperRefs.current;
     refs.forEach(el => {
       if (el) el.addEventListener('wheel', handler, { passive: false });
@@ -614,6 +653,12 @@ function App() {
       sliderRef.current.addEventListener('wheel', sliderHandler, { passive: false });
     }
 
+    // Add wheel listeners to upload image wrappers
+    const uploadRefs = uploadImgRefs.current;
+    uploadRefs.forEach(el => {
+      if (el) el.addEventListener('wheel', uploadHandler, { passive: false });
+    });
+
     return () => {
       refs.forEach(el => {
         if (el) el.removeEventListener('wheel', handler);
@@ -621,6 +666,9 @@ function App() {
       if (sliderRef.current) {
         sliderRef.current.removeEventListener('wheel', sliderHandler);
       }
+      uploadRefs.forEach(el => {
+        if (el) el.removeEventListener('wheel', uploadHandler);
+      });
     };
   });
 
@@ -680,13 +728,13 @@ function App() {
         )}
 
         <div className="mode-toggle">
-          <button 
+          <button
             className={`mode-btn ${viewMode === 'shuffle' ? 'active' : ''}`}
             onClick={() => setViewMode('shuffle')}
           >
             🎲 Shuffle Mode
           </button>
-          <button 
+          <button
             className={`mode-btn ${viewMode === 'top10' ? 'active' : ''}`}
             onClick={() => setViewMode('top10')}
           >
@@ -704,7 +752,7 @@ function App() {
             onChange={(e) => {
               setSearchQuery(e.target.value);
               if (e.target.value.trim()) {
-                const filtered = imageList.filter(img => 
+                const filtered = imageList.filter(img =>
                   img.toLowerCase().includes(e.target.value.toLowerCase())
                 );
                 setSearchResults(filtered);
@@ -754,8 +802,8 @@ function App() {
         ) : (
           <div className="top10-selector">
             <label>Select Image (Top 10 by PSNR Difference):</label>
-            <select 
-              value={currentImage || ''} 
+            <select
+              value={currentImage || ''}
               onChange={(e) => {
                 const selected = top10Images.find(img => img.filename === e.target.value);
                 if (selected) selectTop10Image(selected);
@@ -778,29 +826,25 @@ function App() {
 
         {/* Upload and Restore Section */}
         <div className="upload-section">
-          <button 
+          <button
             className={`upload-toggle-btn ${showUploadSection ? 'active' : ''}`}
             onClick={() => setShowUploadSection(!showUploadSection)}
           >
             <span>&#x1F4F7;</span> Upload & Restore
           </button>
-          
+
           {showUploadSection && (
             <div className="upload-controls">
               <div className="upload-field">
                 <label>Select Degradation Type:</label>
-                <select 
-                  value={selectedDegradation} 
+                <select
+                  value={selectedDegradation}
                   onChange={e => setSelectedDegradation(e.target.value)}
                   className="degradation-select"
                 >
-                  <option value="denoise_15">Denoise (15dB)</option>
-                  <option value="denoise_25">Denoise (25dB)</option>
-                  <option value="denoise_50">Denoise (50dB)</option>
-                  <option value="derain">Rain Removal</option>
-                  <option value="dehaze">Haze Removal</option>
-                  <option value="deblur">Deblur</option>
-                  <option value="delowlight">Lowlight Enhancement</option>
+                  {availableDegradations.map(deg => (
+                    <option key={deg.value} value={deg.value}>{deg.label}</option>
+                  ))}
                 </select>
               </div>
 
@@ -817,14 +861,14 @@ function App() {
 
               {uploadedImage && (
                 <div className="upload-actions">
-                  <button 
+                  <button
                     className="restore-btn"
                     onClick={handleRestore}
                     disabled={isRestoring}
                   >
                     {isRestoring ? '⏳ Restoring...' : '✨ Restore Image'}
                   </button>
-                  <button 
+                  <button
                     className="reset-btn"
                     onClick={handleResetUpload}
                     disabled={isRestoring}
@@ -849,8 +893,8 @@ function App() {
         {showUploadSection && uploadedImage ? (
           <div className="upload-viewer">
             <h2 className="image-title">Upload & Restore Result</h2>
-            
-            <button 
+
+            <button
               className={`zoom-toggle-btn ${uploadZoomEnabled ? 'active' : ''}`}
               onClick={() => {
                 const willBeEnabled = !uploadZoomEnabled;
@@ -867,7 +911,8 @@ function App() {
             <div className="images-grid">
               <div className="image-card">
                 <h3>Uploaded Degraded Image</h3>
-                <div className="img-wrapper" 
+                <div className="img-wrapper"
+                  ref={el => uploadImgRefs.current[0] = el}
                   onMouseMove={(e) => {
                     if (!uploadZoomEnabled) return;
                     const rect = e.currentTarget.getBoundingClientRect();
@@ -892,7 +937,8 @@ function App() {
               {restoredImage ? (
                 <div className="image-card">
                   <h3>Restored Image</h3>
-                  <div className="img-wrapper" 
+                  <div className="img-wrapper"
+                    ref={el => uploadImgRefs.current[1] = el}
                     onMouseMove={(e) => {
                       if (!uploadZoomEnabled) return;
                       const rect = e.currentTarget.getBoundingClientRect();
@@ -964,7 +1010,7 @@ function App() {
                     <option value="gt">Ground Truth</option>
                   </select>
                 </div>
-                <button 
+                <button
                   className={`zoom-toggle-btn ${sliderZoomEnabled ? 'active' : ''}`}
                   onClick={() => {
                     const willBeEnabled = !sliderZoomEnabled;
@@ -986,7 +1032,7 @@ function App() {
                 )}
               </div>
 
-              <div 
+              <div
                 className={`comparison-slider ${sliderZoomEnabled ? 'zooming' : ''}`}
                 ref={sliderRef}
                 onMouseMove={handleSliderMouseMove}

@@ -467,24 +467,44 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
       return res.status(400).json({ error: 'No image file provided' });
     }
 
-    const { degradationType } = req.body;
+    const { degradationType, task } = req.body;
     console.log('Degradation type:', degradationType);
+    console.log('Selected task:', task);
     
-    // Map degradation type to model task and de_type
-    const degradationMap = {
-      'denoise_15': { task: 'N', de_type: 'denoise_15', level: 'Denoise15' },
-      'denoise_25': { task: 'N', de_type: 'denoise_25', level: 'Denoise25' },
-      'denoise_50': { task: 'N', de_type: 'denoise_50', level: 'Denoise50' },
-      'derain': { task: 'R', de_type: 'derain', level: 'Deraining' },
-      'dehaze': { task: 'H', de_type: 'dehaze', level: 'Dehazing' },
-      'deblur': { task: 'B', de_type: 'deblur', level: 'Deblurring' },
-      'delowlight': { task: 'L', de_type: 'delowlight', level: 'Delowlight' }
+    // Map frontend task names to backend task codes
+    const taskMap = {
+      'Single lowlight': 'L',
+      'Single rain': 'R',
+      'Single haze': 'H',
+      'Single blur': 'B',
+      'Single noise': 'N',
+      '3tasks': 'NHR',      // 3 tasks: Noise, Haze, Rain
+      '5tasks': 'NHRBL'     // 5 tasks: Noise, Haze, Rain, Blur, Lowlight
     };
 
-    const config = degradationMap[degradationType];
-    if (!config) {
+    // Map degradation type to de_type and level
+    const degradationMap = {
+      'denoise_15': { de_type: 'denoise_15', level: 'Denoise15', task: null },
+      'denoise_25': { de_type: 'denoise_25', level: 'Denoise25', task: null },
+      'denoise_50': { de_type: 'denoise_50', level: 'Denoise50', task: null },
+      'derain': { de_type: 'derain', level: 'Deraining', task: null },
+      'dehaze': { de_type: 'dehaze', level: 'Dehazing', task: null },
+      'deblur': { de_type: 'deblur', level: 'Deblurring', task: null },
+      'delowlight': { de_type: 'delowlight', level: 'Delowlight', task: null },
+      '3task': { de_type: 'denoise_15', level: 'Denoise15', task: 'NHR' },
+      '5task': { de_type: 'denoise_15', level: 'Denoise15', task: 'NHRBL' }
+    };
+
+    const degradationConfig = degradationMap[degradationType];
+    if (!degradationConfig) {
       console.error('Invalid degradation type:', degradationType);
       return res.status(400).json({ error: 'Invalid degradation type' });
+    }
+
+    // Use task from degradation config if it's a multi-task model, otherwise use the selected task
+    let finalTask = modelTask;
+    if (degradationConfig.task) {
+      finalTask = degradationConfig.task;
     }
 
     // Create a temporary directory for this inference
@@ -495,16 +515,22 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
     const inputPath = req.file.path;
     const outputPath = path.join(inferDir, 'restored.png');
     
-    // Run Python inference script
-    const pythonScript = path.join(baseDir, 'inference_restore.py');
-    
+    // Run Python inference script with robust error handling
+    const pythonScript = path.resolve(baseDir, 'inference_restore.py');
+
+    // Verify script exists before spawning
+    if (!fs.existsSync(pythonScript)) {
+      console.error('[restore] Inference script missing:', pythonScript);
+      return res.status(500).json({ error: 'Restoration failed', details: `Script not found: ${pythonScript}` });
+    }
+
     const args = [
       pythonScript,
       '--input', inputPath,
       '--output', outputPath,
-      '--task', config.task,
-      '--de_type', config.de_type,
-      '--level', config.level
+      '--task', finalTask,
+      '--de_type', degradationConfig.de_type,
+      '--level', degradationConfig.level
     ];
 
     console.log(`Running inference: ${args.join(' ')}`);
@@ -518,19 +544,19 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
       let stdout = '';
       let stderr = '';
 
-      python.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
+      python.stdout.on('data', (data) => { stdout += data.toString(); });
+      python.stderr.on('data', (data) => { stderr += data.toString(); });
 
-      python.stderr.on('data', (data) => {
-        stderr += data.toString();
+      // Capture errors like ENOENT (script not found) or permission issues
+      python.on('error', (err) => {
+        reject(new Error(`Spawn error: ${err.message}`));
       });
 
       python.on('close', (code) => {
         if (code === 0) {
           resolve({ stdout, stderr });
         } else {
-          reject(new Error(`Python process exited with code ${code}: ${stderr}`));
+          reject(new Error(`Python exited with code ${code}: ${stderr}`));
         }
       });
     });

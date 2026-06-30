@@ -36,7 +36,9 @@ def load_model(task, de_type):
         'R': 'single_rain_blip_vlunet.ckpt',
         'H': 'single_haze_blip_vlunet.ckpt',
         'B': 'single_blur_blip_vlunet.ckpt',
-        'L': 'single_lowlight_blip_vlunet.ckpt'
+        'L': 'single_lowlight_blip_vlunet.ckpt',
+        'NHR': '3task_blip_vlunet.ckpt',  # 3 tasks: Noise, Haze, Rain
+        'NHRBL': '5task_blip_vlunet.ckpt'  # 5 tasks: Noise, Haze, Rain, Blur, Lowlight
     }
     
     checkpoint_filename = task_to_checkpoint.get(task)
@@ -137,8 +139,8 @@ def main():
     parser = argparse.ArgumentParser(description='Single image restoration using VLU-Net')
     parser.add_argument('--input', type=str, required=True, help='Input image path')
     parser.add_argument('--output', type=str, required=True, help='Output image path')
-    parser.add_argument('--task', type=str, required=True, choices=['N', 'R', 'H', 'B', 'L'], 
-                       help='Task type: N=noise, R=rain, H=haze, B=blur, L=lowlight')
+    parser.add_argument('--task', type=str, required=True, choices=['N', 'R', 'H', 'B', 'L', 'NHR', 'NHRBL'], 
+                       help='Task type: N=noise, R=rain, H=haze, B=blur, L=lowlight, NHR=3tasks, NHRBL=5tasks')
     parser.add_argument('--de_type', type=str, required=True, 
                        choices=['denoise_15', 'denoise_25', 'denoise_50', 'derain', 'dehaze', 'deblur', 'delowlight'],
                        help='Degradation type')
