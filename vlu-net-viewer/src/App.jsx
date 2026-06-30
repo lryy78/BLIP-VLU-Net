@@ -125,6 +125,22 @@ function App() {
     }
   };
 
+  // Map degradation type to the corresponding task name for the backend
+  const getTaskForDegradation = (degType) => {
+    const degToTask = {
+      'denoise_15': 'Single noise',
+      'denoise_25': 'Single noise',
+      'denoise_50': 'Single noise',
+      'derain': 'Single rain',
+      'dehaze': 'Single haze',
+      'deblur': 'Single blur',
+      'delowlight': 'Single lowlight',
+      '3task': '3tasks',
+      '5task': '5tasks'
+    };
+    return degToTask[degType] || 'Single lowlight';
+  };
+
   const handleRestore = async () => {
     if (!uploadedImage) return;
 
@@ -140,7 +156,8 @@ function App() {
       const formData = new FormData();
       formData.append('image', blob, 'uploaded_image.png');
       formData.append('degradationType', selectedDegradation);
-      formData.append('task', selectedTask);
+      // Derive task from degradation type, not from sidebar selection
+      formData.append('task', getTaskForDegradation(selectedDegradation));
 
       const res = await fetch(`${API_BASE}/restore`, {
         method: 'POST',
@@ -685,7 +702,7 @@ function App() {
           {TASKS.map(t => (
             <button
               key={t}
-              className={`task-btn ${selectedTask === t ? 'active' : ''}`}
+              className={`task-btn ${(!showUploadSection && selectedTask === t) ? 'active' : ''}`}
               onClick={() => setSelectedTask(t)}
             >
               {t}

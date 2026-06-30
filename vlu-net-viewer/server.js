@@ -502,7 +502,7 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
     }
 
     // Use task from degradation config if it's a multi-task model, otherwise use the selected task
-    let finalTask = modelTask;
+    let finalTask = taskMap[task];
     if (degradationConfig.task) {
       finalTask = degradationConfig.task;
     }
@@ -569,10 +569,37 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
       });
     }
 
-    // Return the restored image with full URL
+    // Align the degraded image to base-16 (same as Python's crop_img) so both images have matching dimensions
+    const alignedDegradedPath = path.join(inferDir, 'degraded_aligned.png');
+    try {
+      const metadata = await sharp(inputPath).metadata();
+      const h = metadata.height;
+      const w = metadata.width;
+      const BASE = 16;
+      const cropH = h % BASE;
+      const cropW = w % BASE;
+      if (cropH !== 0 || cropW !== 0) {
+        const left = Math.floor(cropW / 2);
+        const top = Math.floor(cropH / 2);
+        const extractWidth = w - cropW;
+        const extractHeight = h - cropH;
+        await sharp(inputPath)
+          .extract({ left, top, width: extractWidth, height: extractHeight })
+          .png()
+          .toFile(alignedDegradedPath);
+      } else {
+        // Already aligned, just copy
+        fs.copyFileSync(inputPath, alignedDegradedPath);
+      }
+    } catch (alignErr) {
+      console.error('Failed to align degraded image, falling back to original:', alignErr);
+      fs.copyFileSync(inputPath, alignedDegradedPath);
+    }
+
+    // Return the restored image with full URL (use aligned degraded for matching dimensions)
     res.json({
       success: true,
-      degradedImage: `${req.protocol}://${req.hostname}:${PORT}/api/image?path=${encodeURIComponent(inputPath)}`,
+      degradedImage: `${req.protocol}://${req.hostname}:${PORT}/api/image?path=${encodeURIComponent(alignedDegradedPath)}`,
       restoredImage: `${req.protocol}://${req.hostname}:${PORT}/api/image?path=${encodeURIComponent(outputPath)}`,
       message: 'Image restored successfully'
     });
