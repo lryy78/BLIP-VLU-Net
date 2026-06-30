@@ -3,9 +3,16 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
+import multer from 'multer';
+import { spawn } from 'child_process';
+import os from 'os';
 
 const app = express();
 app.use(cors());
+
+// Add JSON and URL-encoded middleware for form data
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 import { fileURLToPath } from 'url';
 
@@ -186,7 +193,7 @@ app.get('/api/tasks', (req, res) => {
 app.get('/api/image', (req, res) => {
   const { path: filePath } = req.query;
   if (!filePath || !fs.existsSync(filePath)) {
-    return res.status(404).send('Image not found');
+    return res.status(404).json({ error: 'Image not found' });
   }
   res.sendFile(filePath);
 });
@@ -202,7 +209,7 @@ app.get('/api/image', (req, res) => {
 app.get('/api/aligned-image', async (req, res) => {
   const { path: filePath } = req.query;
   if (!filePath || !fs.existsSync(filePath)) {
-    return res.status(404).send('Image not found');
+    return res.status(404).json({ error: 'Image not found' });
   }
 
   const BASE = 16;
@@ -240,7 +247,7 @@ app.get('/api/aligned-image', async (req, res) => {
     res.send(buffer);
   } catch (err) {
     console.error('Error aligning image:', err);
-    res.status(500).send('Error processing image');
+    res.status(500).json({ error: 'Error processing image', details: err.message });
   }
 });
 
@@ -402,6 +409,172 @@ function getGTFilename(task, filename, dataset) {
   }
   return filename;
 }
+
+// Configure multer for file uploads
+const uploadsDir = path.join(os.tmpdir(), 'vlu-net-uploads');
+const resultsDir = path.join(os.tmpdir(), 'vlu-net-results');
+fs.mkdirSync(uploadsDir, { recursive: true });
+fs.mkdirSync(resultsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadsDir);
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, uniqueSuffix + '-' + file.originalname);
+  }
+});
+
+const upload = multer({ 
+  storage: storage,
+  fileFilter: (req, file, cb) => {
+    const allowedTypes = /jpeg|jpg|png|bmp|tiff/;
+    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+    const mimetype = allowedTypes.test(file.mimetype) || file.mimetype.startsWith('image/');
+    if (extname && mimetype) {
+      return cb(null, true);
+    }
+    cb(new Error('Only image files are allowed'));
+  },
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});
+
+// Multer error handler
+app.use((err, req, res, next) => {
+  if (err instanceof multer.MulterError) {
+    if (err.code === 'LIMIT_FILE_SIZE') {
+      return res.status(400).json({ error: 'File too large', details: 'Maximum file size is 10MB' });
+    }
+    return res.status(400).json({ error: 'Upload error', details: err.message });
+  }
+  if (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  next();
+});
+
+// Upload and restore endpoint - with comprehensive error handling
+app.post('/api/restore', upload.single('image'), async (req, res) => {
+  console.log('=== Restore endpoint called ===');
+  
+  try {
+    console.log('Request body:', req.body);
+    console.log('Request file:', req.file);
+    
+    if (!req.file) {
+      console.error('No file in request');
+      return res.status(400).json({ error: 'No image file provided' });
+    }
+
+    const { degradationType } = req.body;
+    console.log('Degradation type:', degradationType);
+    
+    // Map degradation type to model task and de_type
+    const degradationMap = {
+      'denoise_15': { task: 'N', de_type: 'denoise_15', level: 'Denoise15' },
+      'denoise_25': { task: 'N', de_type: 'denoise_25', level: 'Denoise25' },
+      'denoise_50': { task: 'N', de_type: 'denoise_50', level: 'Denoise50' },
+      'derain': { task: 'R', de_type: 'derain', level: 'Deraining' },
+      'dehaze': { task: 'H', de_type: 'dehaze', level: 'Dehazing' },
+      'deblur': { task: 'B', de_type: 'deblur', level: 'Deblurring' },
+      'delowlight': { task: 'L', de_type: 'delowlight', level: 'Delowlight' }
+    };
+
+    const config = degradationMap[degradationType];
+    if (!config) {
+      console.error('Invalid degradation type:', degradationType);
+      return res.status(400).json({ error: 'Invalid degradation type' });
+    }
+
+    // Create a temporary directory for this inference
+    const inferDir = path.join(resultsDir, `infer_${Date.now()}`);
+    fs.mkdirSync(inferDir, { recursive: true });
+    
+    // Copy uploaded image to inference directory
+    const inputPath = req.file.path;
+    const outputPath = path.join(inferDir, 'restored.png');
+    
+    // Run Python inference script
+    const pythonScript = path.join(baseDir, 'inference_restore.py');
+    
+    const args = [
+      pythonScript,
+      '--input', inputPath,
+      '--output', outputPath,
+      '--task', config.task,
+      '--de_type', config.de_type,
+      '--level', config.level
+    ];
+
+    console.log(`Running inference: ${args.join(' ')}`);
+
+    const result = await new Promise((resolve, reject) => {
+      const python = spawn('python', args, {
+        cwd: baseDir,
+        env: { ...process.env, CUDA_VISIBLE_DEVICES: '0' }
+      });
+
+      let stdout = '';
+      let stderr = '';
+
+      python.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      python.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      python.on('close', (code) => {
+        if (code === 0) {
+          resolve({ stdout, stderr });
+        } else {
+          reject(new Error(`Python process exited with code ${code}: ${stderr}`));
+        }
+      });
+    });
+
+    // Check if output file was created
+    if (!fs.existsSync(outputPath)) {
+      return res.status(500).json({ 
+        error: 'Restoration failed', 
+        details: 'Output file not created' 
+      });
+    }
+
+    // Return the restored image with full URL
+    res.json({
+      success: true,
+      degradedImage: `${req.protocol}://${req.hostname}:${PORT}/api/image?path=${encodeURIComponent(inputPath)}`,
+      restoredImage: `${req.protocol}://${req.hostname}:${PORT}/api/image?path=${encodeURIComponent(outputPath)}`,
+      message: 'Image restored successfully'
+    });
+
+  } catch (err) {
+    console.error('Restoration error:', err);
+    res.status(500).json({ 
+      error: 'Restoration failed', 
+      details: err.message 
+    });
+  }
+});
+
+// 404 handler
+app.use((req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.status(404).json({ error: 'Not found' });
+});
+
+// Global error handler - MUST BE LAST
+app.use((err, req, res, next) => {
+  console.error('Global error handler:', err);
+  res.setHeader('Content-Type', 'application/json');
+  res.status(500).json({ 
+    error: 'Internal server error', 
+    details: err.message 
+  });
+});
 
 const PORT = 3001;
 const server = app.listen(PORT, () => {
