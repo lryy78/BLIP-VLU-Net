@@ -952,8 +952,8 @@ function App() {
               </div>
 
               {restoredImage ? (
-                <div className="image-card">
-                  <h3>Restored Image</h3>
+                <div className="image-card blip-card">
+                  <h3>BLIP VLU Restore (ours)</h3>
                   <div className="img-wrapper"
                     ref={el => uploadImgRefs.current[1] = el}
                     onMouseMove={(e) => {
@@ -980,8 +980,8 @@ function App() {
                   </div>
                 </div>
               ) : (
-                <div className="image-card">
-                  <h3>Restored Image</h3>
+                <div className="image-card blip-card">
+                  <h3>BLIP VLU Restore (ours)</h3>
                   <div className="img-wrapper">
                     <div className="placeholder">
                       {isRestoring ? '⏳ Processing...' : 'Click "Restore Image" to start'}
