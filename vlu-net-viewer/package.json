@@ -10,7 +10,9 @@
     "dev:server": "node server.js",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "serve": "npm run build && node server.js",
+    "share": "concurrently \"npm run dev\" \"npx --yes untun@latest tunnel http://127.0.0.1:5173\""
   },
   "dependencies": {
     "canvas": "^3.2.3",

@@ -596,11 +596,11 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
       fs.copyFileSync(inputPath, alignedDegradedPath);
     }
 
-    // Return the restored image with full URL (use aligned degraded for matching dimensions)
+    // Return the restored image with relative URL so it works seamlessly over local networks and proxies
     res.json({
       success: true,
-      degradedImage: `${req.protocol}://${req.hostname}:${PORT}/api/image?path=${encodeURIComponent(alignedDegradedPath)}`,
-      restoredImage: `${req.protocol}://${req.hostname}:${PORT}/api/image?path=${encodeURIComponent(outputPath)}`,
+      degradedImage: `/api/image?path=${encodeURIComponent(alignedDegradedPath)}`,
+      restoredImage: `/api/image?path=${encodeURIComponent(outputPath)}`,
       message: 'Image restored successfully'
     });
 
@@ -613,11 +613,28 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
   }
 });
 
-// 404 handler
-app.use((req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.status(404).json({ error: 'Not found' });
-});
+// Serve static files from the React frontend build
+const distPath = path.join(__dirname, 'dist');
+if (fs.existsSync(distPath)) {
+  app.use(express.static(distPath));
+  
+  // Hand over any other requests to the React Router
+  app.use((req, res, next) => {
+    if (req.method !== 'GET') return next();
+    // Only intercept if not an API route
+    if (!req.path.startsWith('/api')) {
+      res.sendFile(path.join(distPath, 'index.html'));
+    } else {
+      res.status(404).json({ error: 'API endpoint not found' });
+    }
+  });
+} else {
+  // 404 handler for when frontend is not built
+  app.use((req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(404).json({ error: 'Not found. Please run npm run build' });
+  });
+}
 
 // Global error handler - MUST BE LAST
 app.use((err, req, res, next) => {
@@ -630,8 +647,19 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = 3001;
-const server = app.listen(PORT, () => {
-  console.log(`Backend server running on http://localhost:${PORT}`);
+const server = app.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n  VLU-Net Viewer Server is ready!`);
+  console.log(`  ➜  Local:   http://localhost:${PORT}/`);
+  
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        console.log(`  ➜  Network: http://${iface.address}:${PORT}/`);
+      }
+    }
+  }
+  console.log('\n');
 });
 server.on('error', err => {
   console.error(`Backend server failed: ${err.message}`);
