@@ -3,7 +3,8 @@ import { ssim } from 'ssim.js';
 import './App.css';
 import ComparisonTable from './components/ComparisonTable';
 
-const API_BASE = 'http://localhost:3001/api';
+// Use relative API path in production, localhost in development
+const API_BASE = import.meta.env.PROD ? '/api' : 'http://localhost:3001/api';
 
 const TASKS = [
   'Single lowlight',
@@ -243,8 +244,7 @@ function App() {
   const fetchImages = async () => {
     setImageStatus('Loading images...');
     try {
-      const url = new URL(`${API_BASE}/tasks`);
-      url.search = new URLSearchParams({ task: selectedTask, dataset, level: noiseLevel });
+      const url = `${API_BASE}/tasks?${new URLSearchParams({ task: selectedTask, dataset, level: noiseLevel })}`;
       const res = await fetch(url);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
@@ -287,8 +287,7 @@ function App() {
     setCurrentImage(null);
     setTop10MetricsCache({});
     try {
-      const url = new URL(`${API_BASE}/top10`);
-      url.search = new URLSearchParams({ task: selectedTask, dataset, level: noiseLevel });
+      const url = `${API_BASE}/top10?${new URLSearchParams({ task: selectedTask, dataset, level: noiseLevel })}`;
       const res = await fetch(url);
       if (!res.ok) {
         const errorData = await res.json().catch(() => ({}));
