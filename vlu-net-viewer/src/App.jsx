@@ -3,7 +3,7 @@ import { ssim } from 'ssim.js';
 import './App.css';
 import ComparisonTable from './components/ComparisonTable';
 
-const API_BASE = '/api';
+const API_BASE = 'http://localhost:3001/api';
 
 const TASKS = [
   'Single lowlight',

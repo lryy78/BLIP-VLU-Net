@@ -599,8 +599,8 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
     // Return the restored image with full URL (use aligned degraded for matching dimensions)
     res.json({
       success: true,
-      degradedImage: `/api/image?path=${encodeURIComponent(alignedDegradedPath)}`,
-      restoredImage: `/api/image?path=${encodeURIComponent(outputPath)}`,
+      degradedImage: `${req.protocol}://${req.hostname}:${PORT}/api/image?path=${encodeURIComponent(alignedDegradedPath)}`,
+      restoredImage: `${req.protocol}://${req.hostname}:${PORT}/api/image?path=${encodeURIComponent(outputPath)}`,
       message: 'Image restored successfully'
     });
 
@@ -630,8 +630,8 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = 3001;
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Backend server running on http://0.0.0.0:${PORT}`);
+const server = app.listen(PORT, () => {
+  console.log(`Backend server running on http://localhost:${PORT}`);
 });
 server.on('error', err => {
   console.error(`Backend server failed: ${err.message}`);

@@ -5,13 +5,12 @@
   "type": "module",
   "scripts": {
     "start": "npm run dev",
-    "dev": "concurrently \"vite --force\" \"node server.js\"",
-    "dev:client": "vite --force",
+    "dev": "concurrently \"vite\" \"node server.js\"",
+    "dev:client": "vite",
     "dev:server": "node server.js",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview",
-    "share": "start \"Pinggy Tunnel\" ssh -p 443 -o StrictHostKeyChecking=no -R0:localhost:5173 a.pinggy.io && npm run dev"
+    "preview": "vite preview"
   },
   "dependencies": {
     "canvas": "^3.2.3",
