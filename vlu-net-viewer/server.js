@@ -195,6 +195,8 @@ app.get('/api/image', (req, res) => {
   if (!filePath || !fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'Image not found' });
   }
+  // Tell the browser to cache this image aggressively for 1 year
+  res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   res.sendFile(filePath);
 });
 
@@ -230,6 +232,9 @@ app.get('/api/aligned-image', async (req, res) => {
     const top = Math.floor(cropH / 2);
     const extractWidth = w - cropW;
     const extractHeight = h - cropH;
+
+    // Tell the browser to cache this image aggressively for 1 year
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
 
     // Only crop if needed (if image is already base-16 aligned, serve full image)
     if (cropH === 0 && cropW === 0) {
