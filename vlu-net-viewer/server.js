@@ -651,22 +651,34 @@ app.use((err, req, res, next) => {
   });
 });
 
-const PORT = 3001;
-const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n  VLU-Net Viewer Server is ready!`);
-  console.log(`  ➜  Local:   http://localhost:${PORT}/`);
-  
-  const interfaces = os.networkInterfaces();
-  for (const name of Object.keys(interfaces)) {
-    for (const iface of interfaces[name]) {
-      if (iface.family === 'IPv4' && !iface.internal) {
-        console.log(`  ➜  Network: http://${iface.address}:${PORT}/`);
+const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3001;
+const MAX_PORT_ATTEMPTS = 20;
+
+function startServer(port, attempt = 0) {
+  const server = app.listen(port, '0.0.0.0', () => {
+    console.log(`\n  VLU-Net Viewer Server is ready!`);
+    console.log(`  ➜  Local:   http://localhost:${port}/`);
+
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === 'IPv4' && !iface.internal) {
+          console.log(`  ➜  Network: http://${iface.address}:${port}/`);
+        }
       }
     }
-  }
-  console.log('\n');
-});
-server.on('error', err => {
-  console.error(`Backend server failed: ${err.message}`);
-  process.exit(1);
-});
+    console.log('\n');
+  });
+
+  server.on('error', err => {
+    if (err.code === 'EADDRINUSE' && attempt < MAX_PORT_ATTEMPTS) {
+      console.warn(`Port ${port} is already in use, trying port ${port + 1}...`);
+      startServer(port + 1, attempt + 1);
+    } else {
+      console.error(`Backend server failed: ${err.message}`);
+      process.exit(1);
+    }
+  });
+}
+
+startServer(PORT);
