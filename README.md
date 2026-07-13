@@ -5,12 +5,27 @@ This repository extends [VLU-Net](https://github.com/xianggkl/VLU-Net) (CVPR 202
 > **Vision-Language Gradient Descent-driven All-in-One Deep Unfolding Networks**
 > Original work: Zeng, Wang, Chen, Su, Liu — CVPR 2025. Paper: <https://arxiv.org/pdf/2503.16930>
 
+## Framework & Pipelines
+
+### Overall Framework
+<img src="BLIP-VLU-Net\figures\Framework.png" alt="Framework" width="800" />
+
+### General Flow
+<img src="BLIP-VLU-Net\figures\GeneralFlow.png" alt="General Flow" width="600" />
+
+### Phase 1: Caption and Degradation Extraction
+<img src="BLIP-VLU-Net\figures\Phase1.png" alt="Phase 1" width="600" />
+
+### Phase 2: BLIP-2 Fine-Tuning
+<img src="BLIP-VLU-Net\figures\Phase2.png" alt="Phase 2" width="600" />
+
 ---
 
 ## 📁 Repository Structure
 
-```
+```text
 BLIP-VLU-Net/
+├── blip-vlu-net-prototype/        # Includes the pre-prepared images
 ├── VLU-Net/                       # Core VLU-Net codebase (forked from xianggkl/VLU-Net)
 │   ├── net/                       # Network definitions (Final.py, clip.py)
 │   ├── open_clip/                 # Open CLIP model implementation
@@ -25,15 +40,19 @@ BLIP-VLU-Net/
 │   ├── README.md                  # Original VLU-Net README
 │   ├── blip_vlunet_pretrained_ckpt/ # Pretrained BLIP-enhanced CLIP checkpoint
 │   ├── Phase*.ipynb               # BLIP-enhanced experiment notebooks
-│   │   ├── Phase0_*.ipynb            # Setup, dataset config, original VLU-Net test
-│   │   ├── Phase1_*.ipynb            # Caption & degradation extraction
-│   │   ├── Phase2_*.ipynb            # Fine-tuning
-│   │   ├── Phase3_*.ipynb            # CLIP degradation extractor
-│   │   ├── Phase4_*.ipynb            # BLIP-VLU-Net consolidated training
-│   │   └── Phase5_*.ipynb            # BLIP-VLU-Net testing
+│   │   ├── Phase0_blipissue.ipynb      # Tests on the original BLIP unable to describe the image with degraded type and severity level
+│   │   ├── Phase0_setup.ipynb          # Setup by setting up the datasets etc.
+│   │   ├── Phase0_test_orivlunet.ipynb # Tests on the original VLU-Net baseline result using the checkpoint
+│   │   ├── Phase1_*.ipynb              # Enhanced caption is generated, classified on the degradation with different severity levels, and trained and merged with the original VLU-Net
+│   │   ├── Phase2_*.ipynb              # Fine-tunes the BLIP-2 to ensure it is able to describe the image scene with degradation type and severity level
+│   │   ├── Phase2a_*.ipynb             # Shows how the caption transforms from original BLIP into enhanced caption and to fine-tuned BLIP-2
+│   │   ├── Phase3_*.ipynb              # Passes the captions into the tokenizer, etc.
+│   │   ├── Phase4_*.ipynb              # Train
+│   │   ├── Phase5_*.ipynb              # Tests on the train result
+│   │   └── Phase6a_*.ipynb             # Displays the qualitative results for each task
 │   └── ...
 │
-├── vlu-net-viewer/                # Interactive React + Vite web viewer
+├── vlu-net-viewer/                # Interactive React + Vite web viewer. It is run on the web viewer from the datasets and output.
 │   ├── src/                       # React components (ImageSlider, ZoomableImage)
 │   ├── server.js                  # Express backend serving images & computing PSNR/SSIM
 │   ├── public/                    # Static assets
@@ -43,6 +62,32 @@ BLIP-VLU-Net/
 ```
 
 > **Note:** Datasets (`VLU-Net/datasets/`), model outputs (`VLU-Net/output/`), and pretrained checkpoints (`VLU-Net/pretrained_ckpt/`, `VLU-Net/blip_vlunet_pretrained_ckpt/`) are **not included** in this repository due to size. See the [original VLU-Net README](VLU-Net/README.md) for download links.
+
+---
+
+## 📊 Datasets
+
+### Training Datasets
+*Table: Training datasets used for both VLU-Net and BLIP-VLU-Net implementation*
+
+| Degradation Type | Training Dataset | Image Paths | Total Image Paths |
+| :--- | :--- | :--- | :--- |
+| Denoising | BSD400<br>WED | 400<br>4,743 | 5,143 |
+| Dehazing | OTS | 72,135 | 72,135 |
+| Deraining | RainTrainL | 600 | 600 |
+| Deblurring | GoPro | 2,103 | 2,103 |
+| Low-light | LoL | 485 | 485 |
+
+### Testing Datasets
+*Table: Testing datasets used for both VLU-Net and BLIP-VLU-Net evaluation*
+
+| Degradation Type | Testing Dataset | Image Paths | Total Image Paths |
+| :--- | :--- | :--- | :--- |
+| Denoising | CBSD68<br>Urban100 | 68<br>100 | 168 |
+| Dehazing | SOTS | 500 | 500 |
+| Deraining | Rain100L | 100 | 100 |
+| Deblurring | GoPro | 1,111 | 1,111 |
+| Low-light | LoL | 15 | 15 |
 
 ---
 
