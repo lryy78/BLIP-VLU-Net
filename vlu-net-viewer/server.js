@@ -541,7 +541,9 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
     console.log(`Running inference: ${args.join(' ')}`);
 
     const result = await new Promise((resolve, reject) => {
-      const python = spawn('python', args, {
+      // Using direct absolute path so you don't have to launch from Anaconda Prompt
+      const pythonExe = 'C:\\Users\\user\\anaconda3\\python.exe';
+      const python = spawn(pythonExe, args, {
         cwd: baseDir,
         env: { ...process.env, CUDA_VISIBLE_DEVICES: '0' }
       });
