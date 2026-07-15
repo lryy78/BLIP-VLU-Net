@@ -60,7 +60,7 @@ const NOISE_TASKS = {
         'noisy_rand': 'Denoise_rand'
       };
       const vlu_level = vlu_level_map[level];
-      
+
       return {
         degraded: path.join(baseDir, 'datasets', 'denoising_datasets', dataset, level),
         vlu: path.join(baseDir, 'output', 'final_results', 'N', dataset, vlu_level),
@@ -227,7 +227,7 @@ app.get('/api/aligned-image', async (req, res) => {
     //   return image[crop_h//2 : h-crop_h+crop_h//2, crop_w//2 : w-crop_w+crop_w//2, :]
     const cropH = h % BASE;
     const cropW = w % BASE;
-    
+
     const left = Math.floor(cropW / 2);
     const top = Math.floor(cropH / 2);
     const extractWidth = w - cropW;
@@ -262,27 +262,27 @@ const alignImage = async (imgPath) => {
   const metadata = await sharp(imgPath).metadata();
   const h = metadata.height;
   const w = metadata.width;
-  
+
   const cropH = h % BASE;
   const cropW = w % BASE;
-  
+
   // If already aligned, return original
   if (cropH === 0 && cropW === 0) {
     return imgPath;
   }
-  
+
   const left = Math.floor(cropW / 2);
   const top = Math.floor(cropH / 2);
   const extractWidth = w - cropW;
   const extractHeight = h - cropH;
-  
+
   // Create temporary aligned image
   const tempPath = imgPath + '.aligned.jpg';
   await sharp(imgPath)
     .extract({ left, top, width: extractWidth, height: extractHeight })
     .jpeg({ quality: 95 })
     .toFile(tempPath);
-  
+
   return tempPath;
 };
 
@@ -304,10 +304,10 @@ const calculatePSNR = async (imgPath1, imgPath2) => {
 
     // Clean up temporary aligned images
     if (aligned1 !== imgPath1) {
-      try { fs.unlinkSync(aligned1); } catch(e) {}
+      try { fs.unlinkSync(aligned1); } catch (e) { }
     }
     if (aligned2 !== imgPath2) {
-      try { fs.unlinkSync(aligned2); } catch(e) {}
+      try { fs.unlinkSync(aligned2); } catch (e) { }
     }
 
     const len = img1.length;
@@ -321,7 +321,7 @@ const calculatePSNR = async (imgPath1, imgPath2) => {
       mse += diff * diff;
     }
     mse /= len;
-    
+
     if (mse === 0) return 100;
     return (10 * Math.log10((255 * 255) / mse)).toFixed(2);
   } catch (err) {
@@ -362,7 +362,7 @@ app.get('/api/top10', async (req, res) => {
         const vluExists = fs.existsSync(vluPath);
         const blipExists = fs.existsSync(blipPath);
         const gtExists = fs.existsSync(gtPath);
-        
+
         if (!vluExists || !blipExists || !gtExists) {
           if (i === 0) { // Only log for first batch to avoid spam
             console.log(`[top10] Missing files for ${file}: vlu=${vluExists}, blip=${blipExists}, gt=${gtExists}`);
@@ -392,7 +392,7 @@ app.get('/api/top10', async (req, res) => {
     }
 
     console.log(`[top10] Calculated PSNR for ${results.length} images`);
-    
+
     // Sort by difference (biggest first) and take top 10
     results.sort((a, b) => b.difference - a.difference);
     const top10 = results.slice(0, 10);
@@ -431,7 +431,7 @@ const storage = multer.diskStorage({
   }
 });
 
-const upload = multer({ 
+const upload = multer({
   storage: storage,
   fileFilter: (req, file, cb) => {
     const allowedTypes = /jpeg|jpg|png|bmp|tiff/;
@@ -462,11 +462,11 @@ app.use((err, req, res, next) => {
 // Upload and restore endpoint - with comprehensive error handling
 app.post('/api/restore', upload.single('image'), async (req, res) => {
   console.log('=== Restore endpoint called ===');
-  
+
   try {
     console.log('Request body:', req.body);
     console.log('Request file:', req.file);
-    
+
     if (!req.file) {
       console.error('No file in request');
       return res.status(400).json({ error: 'No image file provided' });
@@ -475,7 +475,7 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
     const { degradationType, task } = req.body;
     console.log('Degradation type:', degradationType);
     console.log('Selected task:', task);
-    
+
     // Map frontend task names to backend task codes
     const taskMap = {
       'Single lowlight': 'L',
@@ -515,11 +515,11 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
     // Create a temporary directory for this inference
     const inferDir = path.join(resultsDir, `infer_${Date.now()}`);
     fs.mkdirSync(inferDir, { recursive: true });
-    
+
     // Copy uploaded image to inference directory
     const inputPath = req.file.path;
     const outputPath = path.join(inferDir, 'restored.png');
-    
+
     // Run Python inference script with robust error handling
     const pythonScript = path.resolve(baseDir, 'inference_restore.py');
 
@@ -570,9 +570,9 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
 
     // Check if output file was created
     if (!fs.existsSync(outputPath)) {
-      return res.status(500).json({ 
-        error: 'Restoration failed', 
-        details: 'Output file not created' 
+      return res.status(500).json({
+        error: 'Restoration failed',
+        details: 'Output file not created'
       });
     }
 
@@ -613,9 +613,9 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
 
   } catch (err) {
     console.error('Restoration error:', err);
-    res.status(500).json({ 
-      error: 'Restoration failed', 
-      details: err.message 
+    res.status(500).json({
+      error: 'Restoration failed',
+      details: err.message
     });
   }
 });
@@ -624,7 +624,7 @@ app.post('/api/restore', upload.single('image'), async (req, res) => {
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
-  
+
   // Hand over any other requests to the React Router
   app.use((req, res, next) => {
     if (req.method !== 'GET') return next();
@@ -647,9 +647,9 @@ if (fs.existsSync(distPath)) {
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
   res.setHeader('Content-Type', 'application/json');
-  res.status(500).json({ 
-    error: 'Internal server error', 
-    details: err.message 
+  res.status(500).json({
+    error: 'Internal server error',
+    details: err.message
   });
 });
 
@@ -658,16 +658,20 @@ const MAX_PORT_ATTEMPTS = 20;
 
 function startServer(port, attempt = 0) {
   const server = app.listen(port, '0.0.0.0', () => {
-    console.log(`\n  VLU-Net Viewer Server is ready!`);
+    console.log(`\n  AiOIR Viewer Server is ready!`);
     console.log(`  ➜  Local:   http://localhost:${port}/`);
 
     const interfaces = os.networkInterfaces();
+    let networkIp = null;
     for (const name of Object.keys(interfaces)) {
       for (const iface of interfaces[name]) {
-        if (iface.family === 'IPv4' && !iface.internal) {
-          console.log(`  ➜  Network: http://${iface.address}:${port}/`);
+        if (iface.family === 'IPv4' && !iface.internal && !networkIp) {
+          networkIp = iface.address;
         }
       }
+    }
+    if (networkIp) {
+      console.log(`  ➜  Network: http://${networkIp}:${port}/`);
     }
     console.log('\n');
   });

@@ -43,7 +43,7 @@ function App() {
 
   // Slider State
   const [sliderLeft, setSliderLeft] = useState('degraded');
-  const [sliderRight, setSliderRight] = useState('vlu');
+  const [sliderRight, setSliderRight] = useState('blip');
   const [sliderPos, setSliderPos] = useState(50);
 
   const [zoomStyle, setZoomStyle] = useState({ transform: 'scale(1)', transformOrigin: 'center center' });
@@ -81,7 +81,7 @@ function App() {
   const uploadZoomScaleRef = useRef(1);
   const [uploadZoomEnabled, setUploadZoomEnabled] = useState(false);
   const uploadImgRefs = useRef([]);
-  
+
   // Upload zoom wheel handler
   const handleUploadWheel = (e) => {
     if (!uploadZoomEnabled) return;
@@ -153,7 +153,7 @@ function App() {
       // Convert data URL to blob
       const response = await fetch(uploadedImage);
       const blob = await response.blob();
-      
+
       const formData = new FormData();
       formData.append('image', blob, 'uploaded_image.png');
       formData.append('degradationType', selectedDegradation);
@@ -714,7 +714,7 @@ function App() {
       </button>
       {/* Sidebar */}
       <div className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
-        <h1 className="logo">VLU-Net Viewer</h1>
+        <h1 className="logo">AiOIR Viewer</h1>
         <div className="task-list">
           {TASKS.map(t => (
             <button
@@ -1010,8 +1010,8 @@ function App() {
 
             {restoredImage && (
               <div className="download-section" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
-                <button 
-                  className="download-btn" 
+                <button
+                  className="download-btn"
                   onClick={handleDownload}
                   style={{
                     backgroundColor: '#10b981',

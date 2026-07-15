@@ -1,4 +1,4 @@
-# VLU-Net Viewer
+# AiOIR Viewer
 
 Interactive React + Vite viewer for comparing VLU-Net and BLIP-VLU-Net restoration outputs.
 

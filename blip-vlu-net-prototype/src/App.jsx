@@ -52,47 +52,6 @@ function App() {
   const zoomScaleRef = useRef(1);
   const imgWrapperRefs = useRef([]);
 
-  // Upload and Restore State
-  const [showUploadSection, setShowUploadSection] = useState(false);
-  const [uploadedImage, setUploadedImage] = useState(null);
-  const [restoredImage, setRestoredImage] = useState(null);
-  const [isRestoring, setIsRestoring] = useState(false);
-  const [restoreError, setRestoreError] = useState(null);
-  const [selectedDegradation, setSelectedDegradation] = useState('denoise_15');
-  const fileInputRef = useRef(null);
-
-  // Get available degradation types - always show all options for upload feature
-  const getAvailableDegradations = () => {
-    return [
-      { value: 'denoise_15', label: 'Denoise' },
-      { value: 'derain', label: 'Rain Removal' },
-      { value: 'dehaze', label: 'Haze Removal' },
-      { value: 'deblur', label: 'Deblur' },
-      { value: 'delowlight', label: 'Lowlight Enhancement' },
-      { value: '3task', label: '3Task Model (NHR)' },
-      { value: '5task', label: '5Task Model (NHRBL)' }
-    ];
-  };
-
-  const availableDegradations = getAvailableDegradations();
-
-  // Upload viewer zoom state
-  const [uploadZoomStyle, setUploadZoomStyle] = useState({ transform: 'scale(1)', transformOrigin: 'center center' });
-  const uploadZoomScaleRef = useRef(1);
-  const [uploadZoomEnabled, setUploadZoomEnabled] = useState(false);
-  const uploadImgRefs = useRef([]);
-  
-  // Upload zoom wheel handler
-  const handleUploadWheel = (e) => {
-    if (!uploadZoomEnabled) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const delta = e.deltaY < 0 ? 0.5 : -0.5;
-    const newScale = Math.min(Math.max(uploadZoomScaleRef.current + delta, 1), 8);
-    uploadZoomScaleRef.current = newScale;
-    setUploadZoomStyle(prev => ({ ...prev, transform: `scale(${newScale})` }));
-  };
-
   // Slider Zoom State
   const [sliderZoomEnabled, setSliderZoomEnabled] = useState(false);
   const [sliderZoomLocked, setSliderZoomLocked] = useState(false);
@@ -102,104 +61,6 @@ function App() {
 
   // Comparison table modal state
   const [showComparison, setShowComparison] = useState(false);
-
-  // Upload and Restore Functions
-  const handleFileSelect = (e) => {
-    console.log('File selected:', e.target.files);
-    const file = e.target.files[0];
-    if (file) {
-      console.log('Processing file:', file.name, file.size, file.type);
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        console.log('File loaded successfully');
-        setUploadedImage(event.target.result);
-        setRestoredImage(null);
-        setRestoreError(null);
-      };
-      reader.onerror = (error) => {
-        console.error('FileReader error:', error);
-        setRestoreError('Failed to read file');
-      };
-      reader.readAsDataURL(file);
-    } else {
-      console.log('No file selected');
-    }
-  };
-
-  // Map degradation type to the corresponding task name for the backend
-  const getTaskForDegradation = (degType) => {
-    const degToTask = {
-      'denoise_15': 'Single noise',
-      'denoise_25': 'Single noise',
-      'denoise_50': 'Single noise',
-      'derain': 'Single rain',
-      'dehaze': 'Single haze',
-      'deblur': 'Single blur',
-      'delowlight': 'Single lowlight',
-      '3task': '3tasks',
-      '5task': '5tasks'
-    };
-    return degToTask[degType] || 'Single lowlight';
-  };
-
-  const handleRestore = async () => {
-    if (!uploadedImage) return;
-
-    setIsRestoring(true);
-    setRestoreError(null);
-    setRestoredImage(null);
-
-    try {
-      // Convert data URL to blob
-      const response = await fetch(uploadedImage);
-      const blob = await response.blob();
-      
-      const formData = new FormData();
-      formData.append('image', blob, 'uploaded_image.png');
-      formData.append('degradationType', selectedDegradation);
-      // Derive task from degradation type, not from sidebar selection
-      formData.append('task', getTaskForDegradation(selectedDegradation));
-
-      const res = await fetch(`${API_BASE}/restore`, {
-        method: 'POST',
-        body: formData
-      });
-
-      // Check content type before parsing JSON
-      const contentType = res.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await res.text();
-        throw new Error(`Server returned non-JSON response: ${text.substring(0, 100)}`);
-      }
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.details || data.error || 'Restoration failed');
-      }
-
-      if (data.success) {
-        setRestoredImage(data.restoredImage);
-      } else {
-        throw new Error(data.error || 'Unknown error');
-      }
-    } catch (err) {
-      console.error('Restoration error:', err);
-      setRestoreError(err.message);
-    } finally {
-      setIsRestoring(false);
-    }
-  };
-
-  const handleResetUpload = () => {
-    setUploadedImage(null);
-    setRestoredImage(null);
-    setRestoreError(null);
-    setShowUploadSection(false);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
 
   useEffect(() => {
     // Reset dataset/level when task changes
@@ -213,8 +74,6 @@ function App() {
       setDataset('');
       setNoiseLevel('');
     }
-    // Close upload section when switching tasks
-    setShowUploadSection(false);
   }, [selectedTask]);
 
   useEffect(() => {
@@ -650,16 +509,6 @@ function App() {
       setSliderZoomStyle(prev => ({ ...prev, transform: `scale(${newScale})` }));
     };
 
-    const uploadHandler = (e) => {
-      if (!uploadZoomEnabled) return;
-      e.preventDefault();
-      e.stopPropagation();
-      const delta = e.deltaY < 0 ? 0.5 : -0.5;
-      const newScale = Math.min(Math.max(uploadZoomScaleRef.current + delta, 1), 8);
-      uploadZoomScaleRef.current = newScale;
-      setUploadZoomStyle(prev => ({ ...prev, transform: `scale(${newScale})` }));
-    };
-
     const refs = imgWrapperRefs.current;
     refs.forEach(el => {
       if (el) el.addEventListener('wheel', handler, { passive: false });
@@ -669,12 +518,6 @@ function App() {
       sliderRef.current.addEventListener('wheel', sliderHandler, { passive: false });
     }
 
-    // Add wheel listeners to upload image wrappers
-    const uploadRefs = uploadImgRefs.current;
-    uploadRefs.forEach(el => {
-      if (el) el.addEventListener('wheel', uploadHandler, { passive: false });
-    });
-
     return () => {
       refs.forEach(el => {
         if (el) el.removeEventListener('wheel', handler);
@@ -682,9 +525,6 @@ function App() {
       if (sliderRef.current) {
         sliderRef.current.removeEventListener('wheel', sliderHandler);
       }
-      uploadRefs.forEach(el => {
-        if (el) el.removeEventListener('wheel', uploadHandler);
-      });
     };
   });
 
@@ -696,13 +536,11 @@ function App() {
       </button>
       {/* Sidebar */}
       <div className={`sidebar ${sidebarOpen ? '' : 'sidebar-collapsed'}`}>
-        <h1 className="logo">VLU-Net Viewer</h1>
+        <h1 className="logo">AiOIR Viewer</h1>
         <div className="task-list">
           {TASKS.map(t => (
             <button
-              key={t}
-              className={`task-btn ${(!showUploadSection && selectedTask === t) ? 'active' : ''}`}
-              onClick={() => setSelectedTask(t)}
+              className={`task-btn ${selectedTask === t ? 'active' : ''}`}
             >
               {t}
             </button>
@@ -839,165 +677,11 @@ function App() {
         <button className="compare-btn" onClick={() => setShowComparison(true)}>
           <span>&#x1F4CA;</span> Compare Quantitative Results
         </button>
-
-        {/* Upload and Restore Section */}
-        <div className="upload-section">
-          <button
-            className={`upload-toggle-btn ${showUploadSection ? 'active' : ''}`}
-            onClick={() => setShowUploadSection(!showUploadSection)}
-          >
-            <span>&#x1F4F7;</span> Upload & Restore
-          </button>
-
-          {showUploadSection && (
-            <div className="upload-controls">
-              <div className="upload-field">
-                <label>Select Degradation Type:</label>
-                <select
-                  value={selectedDegradation}
-                  onChange={e => setSelectedDegradation(e.target.value)}
-                  className="degradation-select"
-                >
-                  {availableDegradations.map(deg => (
-                    <option key={deg.value} value={deg.value}>{deg.label}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="upload-field">
-                <label>Upload Image:</label>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileSelect}
-                  className="file-input"
-                />
-              </div>
-
-              {uploadedImage && (
-                <div className="upload-actions">
-                  <button
-                    className="restore-btn"
-                    onClick={handleRestore}
-                    disabled={isRestoring}
-                  >
-                    {isRestoring ? '⏳ Restoring...' : '✨ Restore Image'}
-                  </button>
-                  <button
-                    className="reset-btn"
-                    onClick={handleResetUpload}
-                    disabled={isRestoring}
-                  >
-                    Reset
-                  </button>
-                </div>
-              )}
-
-              {restoreError && (
-                <div className="error-message">
-                  ❌ Error: {restoreError}
-                </div>
-              )}
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Main Content */}
       <div className="main-content">
-        {showUploadSection && uploadedImage ? (
-          <div className="upload-viewer">
-            <h2 className="image-title">Upload & Restore Result</h2>
-
-            <button
-              className={`zoom-toggle-btn ${uploadZoomEnabled ? 'active' : ''}`}
-              onClick={() => {
-                const willBeEnabled = !uploadZoomEnabled;
-                setUploadZoomEnabled(willBeEnabled);
-                if (!willBeEnabled) {
-                  uploadZoomScaleRef.current = 1;
-                  setUploadZoomStyle({ transform: 'scale(1)', transformOrigin: 'center center' });
-                }
-              }}
-            >
-              {uploadZoomEnabled ? '🔍 Disable Zoom' : '🔍 Enable Zoom'}
-            </button>
-
-            <div className="images-grid">
-              <div className="image-card">
-                <h3>Uploaded Degraded Image</h3>
-                <div className="img-wrapper"
-                  ref={el => uploadImgRefs.current[0] = el}
-                  onMouseMove={(e) => {
-                    if (!uploadZoomEnabled) return;
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = ((e.clientX - rect.left) / rect.width) * 100;
-                    const y = ((e.clientY - rect.top) / rect.height) * 100;
-                    setUploadZoomStyle(prev => ({ ...prev, transformOrigin: `${x}% ${y}%` }));
-                  }}
-                  onMouseEnter={() => {
-                    if (!uploadZoomEnabled) return;
-                    setUploadZoomStyle(prev => ({ ...prev, transform: `scale(${Math.max(2, uploadZoomScaleRef.current)})` }));
-                  }}
-                  onMouseLeave={() => {
-                    if (!uploadZoomEnabled) return;
-                    uploadZoomScaleRef.current = 1;
-                    setUploadZoomStyle({ transform: 'scale(1)', transformOrigin: 'center center' });
-                  }}
-                >
-                  <img src={uploadedImage} style={uploadZoomEnabled ? uploadZoomStyle : {}} alt="Uploaded Degraded" draggable="false" />
-                </div>
-              </div>
-
-              {restoredImage ? (
-                <div className="image-card blip-card">
-                  <h3>BLIP VLU Restore (ours)</h3>
-                  <div className="img-wrapper"
-                    ref={el => uploadImgRefs.current[1] = el}
-                    onMouseMove={(e) => {
-                      if (!uploadZoomEnabled) return;
-                      const rect = e.currentTarget.getBoundingClientRect();
-                      const x = ((e.clientX - rect.left) / rect.width) * 100;
-                      const y = ((e.clientY - rect.top) / rect.height) * 100;
-                      setUploadZoomStyle(prev => ({ ...prev, transformOrigin: `${x}% ${y}%` }));
-                    }}
-                    onMouseEnter={() => {
-                      if (!uploadZoomEnabled) return;
-                      setUploadZoomStyle(prev => ({ ...prev, transform: `scale(${Math.max(2, uploadZoomScaleRef.current)})` }));
-                    }}
-                    onMouseLeave={() => {
-                      if (!uploadZoomEnabled) return;
-                      uploadZoomScaleRef.current = 1;
-                      setUploadZoomStyle({ transform: 'scale(1)', transformOrigin: 'center center' });
-                    }}
-                  >
-                    <img src={restoredImage} style={uploadZoomEnabled ? uploadZoomStyle : {}} alt="Restored" draggable="false" />
-                  </div>
-                  <div className="metrics">
-                    ✅ Restoration completed
-                  </div>
-                </div>
-              ) : (
-                <div className="image-card blip-card">
-                  <h3>BLIP VLU Restore (ours)</h3>
-                  <div className="img-wrapper">
-                    <div className="placeholder">
-                      {isRestoring ? '⏳ Processing...' : 'Click "Restore Image" to start'}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {restoreError && (
-              <div className="error-message">
-                ❌ Error: {restoreError}
-              </div>
-            )}
-          </div>
-        ) : null}
-        {showUploadSection && uploadedImage ? null : viewMode === 'top10' && top10Loading ? (
+        {viewMode === 'top10' && top10Loading ? (
           <div className="empty-state">⏳ Calculating top 10 images... This may take a moment.</div>
         ) : !currentImage ? (
           <div className="empty-state">{imageStatus}</div>

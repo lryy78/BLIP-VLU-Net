@@ -3,7 +3,7 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import sharp from 'sharp';
-import multer from 'multer';
+
 import { spawn } from 'child_process';
 import os from 'os';
 
@@ -206,7 +206,7 @@ app.get('/api/aligned-image', async (req, res) => {
     //   return image[crop_h//2 : h-crop_h+crop_h//2, crop_w//2 : w-crop_w+crop_w//2, :]
     const cropH = h % BASE;
     const cropW = w % BASE;
-    
+
     const left = Math.floor(cropW / 2);
     const top = Math.floor(cropH / 2);
     const extractWidth = w - cropW;
@@ -241,27 +241,27 @@ const alignImage = async (imgPath) => {
   const metadata = await sharp(imgPath).metadata();
   const h = metadata.height;
   const w = metadata.width;
-  
+
   const cropH = h % BASE;
   const cropW = w % BASE;
-  
+
   // If already aligned, return original
   if (cropH === 0 && cropW === 0) {
     return imgPath;
   }
-  
+
   const left = Math.floor(cropW / 2);
   const top = Math.floor(cropH / 2);
   const extractWidth = w - cropW;
   const extractHeight = h - cropH;
-  
+
   // Create temporary aligned image
   const tempPath = imgPath + '.aligned.jpg';
   await sharp(imgPath)
     .extract({ left, top, width: extractWidth, height: extractHeight })
     .jpeg({ quality: 95 })
     .toFile(tempPath);
-  
+
   return tempPath;
 };
 
@@ -283,10 +283,10 @@ const calculatePSNR = async (imgPath1, imgPath2) => {
 
     // Clean up temporary aligned images
     if (aligned1 !== imgPath1) {
-      try { fs.unlinkSync(aligned1); } catch(e) {}
+      try { fs.unlinkSync(aligned1); } catch (e) { }
     }
     if (aligned2 !== imgPath2) {
-      try { fs.unlinkSync(aligned2); } catch(e) {}
+      try { fs.unlinkSync(aligned2); } catch (e) { }
     }
 
     const len = img1.length;
@@ -300,7 +300,7 @@ const calculatePSNR = async (imgPath1, imgPath2) => {
       mse += diff * diff;
     }
     mse /= len;
-    
+
     if (mse === 0) return 100;
     return (10 * Math.log10((255 * 255) / mse)).toFixed(2);
   } catch (err) {
@@ -341,7 +341,7 @@ app.get('/api/top10', async (req, res) => {
         const vluExists = fs.existsSync(vluPath);
         const blipExists = fs.existsSync(blipPath);
         const gtExists = fs.existsSync(gtPath);
-        
+
         if (!vluExists || !blipExists || !gtExists) {
           if (i === 0) { // Only log for first batch to avoid spam
             console.log(`[top10] Missing files for ${file}: vlu=${vluExists}, blip=${blipExists}, gt=${gtExists}`);
@@ -371,7 +371,7 @@ app.get('/api/top10', async (req, res) => {
     }
 
     console.log(`[top10] Calculated PSNR for ${results.length} images`);
-    
+
     // Sort by difference (biggest first) and take top 10
     results.sort((a, b) => b.difference - a.difference);
     const top10 = results.slice(0, 10);
@@ -394,214 +394,11 @@ function getGTFilename(task, filename, dataset) {
   return filename;
 }
 
-// Configure multer for file uploads
-const uploadsDir = path.join(os.tmpdir(), 'vlu-net-uploads');
-const resultsDir = path.join(os.tmpdir(), 'vlu-net-results');
-fs.mkdirSync(uploadsDir, { recursive: true });
-fs.mkdirSync(resultsDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, uploadsDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, uniqueSuffix + '-' + file.originalname);
-  }
-});
-
-const upload = multer({ 
-  storage: storage,
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|bmp|tiff/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype) || file.mimetype.startsWith('image/');
-    if (extname && mimetype) {
-      return cb(null, true);
-    }
-    cb(new Error('Only image files are allowed'));
-  },
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
-});
-
-// Multer error handler
-app.use((err, req, res, next) => {
-  if (err instanceof multer.MulterError) {
-    if (err.code === 'LIMIT_FILE_SIZE') {
-      return res.status(400).json({ error: 'File too large', details: 'Maximum file size is 10MB' });
-    }
-    return res.status(400).json({ error: 'Upload error', details: err.message });
-  }
-  if (err) {
-    return res.status(400).json({ error: err.message });
-  }
-  next();
-});
-
-// Upload and restore endpoint - with comprehensive error handling
-app.post('/api/restore', upload.single('image'), async (req, res) => {
-  console.log('=== Restore endpoint called ===');
-  
-  try {
-    console.log('Request body:', req.body);
-    console.log('Request file:', req.file);
-    
-    if (!req.file) {
-      console.error('No file in request');
-      return res.status(400).json({ error: 'No image file provided' });
-    }
-
-    const { degradationType, task } = req.body;
-    console.log('Degradation type:', degradationType);
-    console.log('Selected task:', task);
-    
-    // Map frontend task names to backend task codes
-    const taskMap = {
-      'Single lowlight': 'L',
-      'Single rain': 'R',
-      'Single haze': 'H',
-      'Single blur': 'B',
-      'Single noise': 'N',
-      '3tasks': 'NHR',      // 3 tasks: Noise, Haze, Rain
-      '5tasks': 'NHRBL'     // 5 tasks: Noise, Haze, Rain, Blur, Lowlight
-    };
-
-    // Map degradation type to de_type and level
-    const degradationMap = {
-      'denoise_15': { de_type: 'denoise_15', level: 'Denoise15', task: null },
-      'denoise_25': { de_type: 'denoise_25', level: 'Denoise25', task: null },
-      'denoise_50': { de_type: 'denoise_50', level: 'Denoise50', task: null },
-      'derain': { de_type: 'derain', level: 'Deraining', task: null },
-      'dehaze': { de_type: 'dehaze', level: 'Dehazing', task: null },
-      'deblur': { de_type: 'deblur', level: 'Deblurring', task: null },
-      'delowlight': { de_type: 'delowlight', level: 'Delowlight', task: null },
-      '3task': { de_type: 'denoise_15', level: 'Denoise15', task: 'NHR' },
-      '5task': { de_type: 'denoise_15', level: 'Denoise15', task: 'NHRBL' }
-    };
-
-    const degradationConfig = degradationMap[degradationType];
-    if (!degradationConfig) {
-      console.error('Invalid degradation type:', degradationType);
-      return res.status(400).json({ error: 'Invalid degradation type' });
-    }
-
-    // Use task from degradation config if it's a multi-task model, otherwise use the selected task
-    let finalTask = taskMap[task];
-    if (degradationConfig.task) {
-      finalTask = degradationConfig.task;
-    }
-
-    // Create a temporary directory for this inference
-    const inferDir = path.join(resultsDir, `infer_${Date.now()}`);
-    fs.mkdirSync(inferDir, { recursive: true });
-    
-    // Copy uploaded image to inference directory
-    const inputPath = req.file.path;
-    const outputPath = path.join(inferDir, 'restored.png');
-    
-    // Run Python inference script with robust error handling
-    const pythonScript = path.resolve(baseDir, 'inference_restore.py');
-
-    // Verify script exists before spawning
-    if (!fs.existsSync(pythonScript)) {
-      console.error('[restore] Inference script missing:', pythonScript);
-      return res.status(500).json({ error: 'Restoration failed', details: `Script not found: ${pythonScript}` });
-    }
-
-    const args = [
-      pythonScript,
-      '--input', inputPath,
-      '--output', outputPath,
-      '--task', finalTask,
-      '--de_type', degradationConfig.de_type,
-      '--level', degradationConfig.level
-    ];
-
-    console.log(`Running inference: ${args.join(' ')}`);
-
-    const result = await new Promise((resolve, reject) => {
-      const python = spawn('python', args, {
-        cwd: baseDir,
-        env: { ...process.env, CUDA_VISIBLE_DEVICES: '0' }
-      });
-
-      let stdout = '';
-      let stderr = '';
-
-      python.stdout.on('data', (data) => { stdout += data.toString(); });
-      python.stderr.on('data', (data) => { stderr += data.toString(); });
-
-      // Capture errors like ENOENT (script not found) or permission issues
-      python.on('error', (err) => {
-        reject(new Error(`Spawn error: ${err.message}`));
-      });
-
-      python.on('close', (code) => {
-        if (code === 0) {
-          resolve({ stdout, stderr });
-        } else {
-          reject(new Error(`Python exited with code ${code}: ${stderr}`));
-        }
-      });
-    });
-
-    // Check if output file was created
-    if (!fs.existsSync(outputPath)) {
-      return res.status(500).json({ 
-        error: 'Restoration failed', 
-        details: 'Output file not created' 
-      });
-    }
-
-    // Align the degraded image to base-16 (same as Python's crop_img) so both images have matching dimensions
-    const alignedDegradedPath = path.join(inferDir, 'degraded_aligned.png');
-    try {
-      const metadata = await sharp(inputPath).metadata();
-      const h = metadata.height;
-      const w = metadata.width;
-      const BASE = 16;
-      const cropH = h % BASE;
-      const cropW = w % BASE;
-      if (cropH !== 0 || cropW !== 0) {
-        const left = Math.floor(cropW / 2);
-        const top = Math.floor(cropH / 2);
-        const extractWidth = w - cropW;
-        const extractHeight = h - cropH;
-        await sharp(inputPath)
-          .extract({ left, top, width: extractWidth, height: extractHeight })
-          .png()
-          .toFile(alignedDegradedPath);
-      } else {
-        // Already aligned, just copy
-        fs.copyFileSync(inputPath, alignedDegradedPath);
-      }
-    } catch (alignErr) {
-      console.error('Failed to align degraded image, falling back to original:', alignErr);
-      fs.copyFileSync(inputPath, alignedDegradedPath);
-    }
-
-    // Return the restored image with relative URL so it works seamlessly over local networks and proxies
-    res.json({
-      success: true,
-      degradedImage: `/api/image?path=${encodeURIComponent(alignedDegradedPath)}`,
-      restoredImage: `/api/image?path=${encodeURIComponent(outputPath)}`,
-      message: 'Image restored successfully'
-    });
-
-  } catch (err) {
-    console.error('Restoration error:', err);
-    res.status(500).json({ 
-      error: 'Restoration failed', 
-      details: err.message 
-    });
-  }
-});
-
 // Serve static files from the React frontend build
 const distPath = path.join(__dirname, 'dist');
 if (fs.existsSync(distPath)) {
   app.use(express.static(distPath));
-  
+
   // Hand over any other requests to the React Router
   app.use((req, res, next) => {
     if (req.method !== 'GET') return next();
@@ -624,24 +421,31 @@ if (fs.existsSync(distPath)) {
 app.use((err, req, res, next) => {
   console.error('Global error handler:', err);
   res.setHeader('Content-Type', 'application/json');
-  res.status(500).json({ 
-    error: 'Internal server error', 
-    details: err.message 
+  res.status(500).json({
+    error: 'Internal server error',
+    details: err.message
   });
 });
 
 const PORT = 3001;
 const server = app.listen(PORT, '0.0.0.0', () => {
-  console.log(`\n  VLU-Net Viewer Server is ready!`);
+  console.log(`\n  AiOIR Viewer Server is ready!`);
   console.log(`  ➜  Local:   http://localhost:${PORT}/`);
-  
+
+  let networkIP = null;
   const interfaces = os.networkInterfaces();
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        console.log(`  ➜  Network: http://${iface.address}:${PORT}/`);
+        if (!networkIP) networkIP = iface.address;
+        if (iface.address.startsWith('192.168.') || iface.address.startsWith('10.')) {
+          networkIP = iface.address;
+        }
       }
     }
+  }
+  if (networkIP) {
+    console.log(`  ➜  Network: http://${networkIP}:${PORT}/`);
   }
   console.log('\n');
 });
