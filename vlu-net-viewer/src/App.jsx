@@ -201,6 +201,24 @@ function App() {
     }
   };
 
+  const handleDownload = async () => {
+    if (!restoredImage) return;
+    try {
+      const response = await fetch(restoredImage);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `restored_${selectedDegradation}_image.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Download failed:', error);
+    }
+  };
+
   useEffect(() => {
     // Reset dataset/level when task changes
     if (selectedTask === 'Single noise') {
@@ -989,6 +1007,34 @@ function App() {
                 </div>
               )}
             </div>
+
+            {restoredImage && (
+              <div className="download-section" style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '15px' }}>
+                <button 
+                  className="download-btn" 
+                  onClick={handleDownload}
+                  style={{
+                    backgroundColor: '#10b981',
+                    color: 'white',
+                    padding: '10px 20px',
+                    border: 'none',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                    transition: 'background 0.2s',
+                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                  }}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#10b981'}
+                >
+                  <span style={{ fontSize: '1.2rem' }}>📥</span>Download Image
+                </button>
+              </div>
+            )}
+
 
             {restoreError && (
               <div className="error-message">
