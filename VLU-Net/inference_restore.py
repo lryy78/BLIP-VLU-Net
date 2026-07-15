@@ -87,6 +87,12 @@ def preprocess_image(image_path):
     """Preprocess image for model input"""
     # Load and convert to RGB
     image = Image.open(image_path).convert('RGB')
+    
+    # Resize if too large to prevent Out of Memory (OOM) errors
+    max_dim = 800
+    if image.width > max_dim or image.height > max_dim:
+        image.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+        
     image_np = np.array(image)
     
     # Crop to base-16 alignment (same as training)
