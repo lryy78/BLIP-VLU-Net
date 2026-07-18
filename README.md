@@ -1,23 +1,21 @@
-# BLIP-VLU-Net
+# 🌟 BLIP-VLU-Net
 
-This repository extends [VLU-Net](https://github.com/xianggkl/VLU-Net) (CVPR 2025) with **BLIP-enhanced** training/testing pipelines and an interactive **web viewer** for comparing restoration results.
+This repository extends the CVPR 2025 accepted work **[VLU-Net](https://github.com/xianggkl/VLU-Net)** with **BLIP-enhanced** training and testing pipelines. It also features an interactive **web viewer** for seamlessly comparing image restoration results.
 
-> **Vision-Language Gradient Descent-driven All-in-One Deep Unfolding Networks**
-> Original work: Zeng, Wang, Chen, Su, Liu — CVPR 2025. Paper: <https://arxiv.org/pdf/2503.16930>
+> **Vision-Language Gradient Descent-driven All-in-One Deep Unfolding Networks**  
+> *Haijin Zeng, Xiangming Wang, Yongyong Chen, Jingyong Su, Jie Liu* (CVPR 2025)  
+> 📄 [Read the Paper](https://arxiv.org/pdf/2503.16930)
 
-## Framework & Pipelines
+## 📖 Abstract
+
+This project proposes a severity-aware All-in-One Image Restoration (AiOIR) framework capable of restoring images affected by multiple degradations, including haze, rain, and low-light, using a single model. To achieve this, we introduce BLIP-VLU-Net, a vision-language-guided Deep Unfolding Network. By leveraging BLIP-2 to extract textual descriptions of degradation type and severity, the framework adaptively guides a hybrid CNN-Transformer U-Net to perform restoration tailored to the detected degradation. This approach demonstrates how vision-language priors can enhance generalized image restoration across diverse and complex environmental conditions, while achieving competitive performance on public benchmark datasets.
+
+---
+
+## 🖼️ Framework & Pipelines
 
 ### Overall Framework
-<img src="BLIP-VLU-Net\figures\Framework.png" alt="Framework" width="800" />
-
-### General Flow
-<img src="BLIP-VLU-Net\figures\GeneralFlow.png" alt="General Flow" width="600" />
-
-### Phase 1: Caption and Degradation Extraction
-<img src="BLIP-VLU-Net\figures\Phase1.png" alt="Phase 1" width="600" />
-
-### Phase 2: BLIP-2 Fine-Tuning
-<img src="BLIP-VLU-Net\figures\Phase2.png" alt="Phase 2" width="600" />
+<img src="BLIP-VLU-Net_assets\figures\Framework.png" alt="Framework" width="800" />
 
 ---
 
@@ -25,189 +23,139 @@ This repository extends [VLU-Net](https://github.com/xianggkl/VLU-Net) (CVPR 202
 
 ```text
 BLIP-VLU-Net/
-├── blip-vlu-net-prototype/        # Includes the pre-prepared images
-├── VLU-Net/                       # Core VLU-Net codebase (forked from xianggkl/VLU-Net)
-│   ├── net/                       # Network definitions (Final.py, clip.py)
-│   ├── open_clip/                 # Open CLIP model implementation
-│   ├── utils/                     # Datasets, losses, schedulers, validation utilities
-│   ├── figures/                   # Paper figures
-│   ├── train.py                   # Original training entry point
-│   ├── test.py                    # Original testing entry point
-│   ├── vlu_test.py                # CLI test script (original VLU-Net, uses pretrained_ckpt/)
-│   ├── blip_vlunet_train.py       # BLIP-enhanced training script (uses blip_vlunet_pretrained_ckpt/)
-│   ├── blip_vlu_test.py           # BLIP-enhanced test script (uses blip_vlunet_pretrained_ckpt/)
-│   ├── requirements.txt           # Python dependencies
-│   ├── README.md                  # Original VLU-Net README
-│   ├── blip_vlunet_pretrained_ckpt/ # Pretrained BLIP-enhanced CLIP checkpoint
-│   ├── Phase*.ipynb               # BLIP-enhanced experiment notebooks
-│   │   ├── Phase0_blipissue.ipynb      # Tests on the original BLIP unable to describe the image with degraded type and severity level
-│   │   ├── Phase0_setup.ipynb          # Setup by setting up the datasets etc.
-│   │   ├── Phase0_test_orivlunet.ipynb # Tests on the original VLU-Net baseline result using the checkpoint
-│   │   ├── Phase1_*.ipynb              # Enhanced caption is generated, classified on the degradation with different severity levels, and trained and merged with the original VLU-Net
-│   │   ├── Phase2_*.ipynb              # Fine-tunes the BLIP-2 to ensure it is able to describe the image scene with degradation type and severity level
-│   │   ├── Phase2a_*.ipynb             # Shows how the caption transforms from original BLIP into enhanced caption and to fine-tuned BLIP-2
-│   │   ├── Phase3_*.ipynb              # Passes the captions into the tokenizer, etc.
-│   │   ├── Phase4_*.ipynb              # Train
-│   │   ├── Phase5_*.ipynb              # Tests on the train result
-│   │   └── Phase6a_*.ipynb             # Displays the qualitative results for each task
-│   └── ...
-│
-├── vlu-net-viewer/                # Interactive React + Vite web viewer. It is run on the web viewer from the datasets and output.
-│   ├── src/                       # React components (ImageSlider, ZoomableImage)
-│   ├── server.js                  # Express backend serving images & computing PSNR/SSIM
-│   ├── public/                    # Static assets
-│   └── package.json
-│
-└── paths.txt                      # Dataset/output path reference notes
+├── BLIP-VLU-Net_assets/           # Figures, posters, and qualitative evaluation results
+├── blip-vlu-net-prototype/        # Web prototype with pre-prepared images (no upload & restore feature)
+├── VLU-Net/                       # Core VLU-Net codebase and BLIP-enhanced training/testing
+│   ├── Phase0_*.ipynb             # Setup and baseline VLU-Net testing
+│   ├── Phase1_*.ipynb             # Caption generation, degradation classification, and merging
+│   ├── Phase2_*.ipynb             # BLIP-2 fine-tuning for degradation-aware descriptions
+│   ├── Phase3_*.ipynb             # Tokenization of enhanced captions
+│   ├── Phase4_*.ipynb             # BLIP-VLU-Net training experiments
+│   ├── Phase5_*.ipynb             # BLIP-VLU-Net testing and evaluation
+│   └── Phase6_*.ipynb             # Qualitative results visualization
+└── vlu-net-viewer/                # Interactive web viewer (requires blip_vlunet_pretrained_ckpt/ and output/)
 ```
 
-> **Note:** Datasets (`VLU-Net/datasets/`), model outputs (`VLU-Net/output/`), and pretrained checkpoints (`VLU-Net/pretrained_ckpt/`, `VLU-Net/blip_vlunet_pretrained_ckpt/`) are **not included** in this repository due to size. See the [original VLU-Net README](VLU-Net/README.md) for download links.
+> **⚠️ Note:** Datasets, model outputs, and pretrained checkpoints are **not included** in this repository due to their large size. Please refer to the [original VLU-Net README](VLU-Net/README.md) for download instructions for the original VLU-Net datasets.
+>
+> **📥 BLIP-VLU-Net Downloads:**
+> - [BLIP VLU-Net Pretrained Ckpt](https://drive.google.com/file/d/1ZP0-KT6TExKSi-AbRgoXInWWuBifoL3R/view?usp=drive_link) (Download and place in `VLU-Net/blip_vlunet_pretrained_ckpt`)
+> - [Ckpt](https://drive.google.com/file/d/1xc4iLskmU4bDsG0voKQFQqPCKm3ztgyU/view?usp=drive_link) (Download and place in `VLU-Net/ckpt`)
+> - [Output Images](https://drive.google.com/file/d/12e5UzSq4Q65lj2k1lqXB3eKCM3OUUfur/view?usp=drive_link) (Download and place in `VLU-Net/output`)
+> - [VLU-Net Pretrained Ckpt](https://drive.google.com/file/d/1214SfTO5LDMr3Ck_aVVUuZhuqhteMJ7P/view?usp=sharing) (Download and place in `VLU-Net/pretrained_ckpt`)
 
 ---
 
-## 📊 Datasets
+## 📊 Datasets Overview
 
-### Training Datasets
-*Table: Training datasets used for both VLU-Net and BLIP-VLU-Net implementation*
-
-| Degradation Type | Training Dataset | Image Paths | Total Image Paths |
-| :--- | :--- | :--- | :--- |
-| Denoising | BSD400<br>WED | 400<br>4,743 | 5,143 |
-| Dehazing | OTS | 72,135 | 72,135 |
-| Deraining | RainTrainL | 600 | 600 |
-| Deblurring | GoPro | 2,103 | 2,103 |
-| Low-light | LoL | 485 | 485 |
-
-### Testing Datasets
-*Table: Testing datasets used for both VLU-Net and BLIP-VLU-Net evaluation*
-
-| Degradation Type | Testing Dataset | Image Paths | Total Image Paths |
-| :--- | :--- | :--- | :--- |
-| Denoising | CBSD68<br>Urban100 | 68<br>100 | 168 |
-| Dehazing | SOTS | 500 | 500 |
-| Deraining | Rain100L | 100 | 100 |
-| Deblurring | GoPro | 1,111 | 1,111 |
-| Low-light | LoL | 15 | 15 |
+| Degradation Type | Training Dataset | Train Images | Testing Dataset | Test Images |
+| :--- | :--- | :--- | :--- | :--- |
+| **Denoising** | BSD400, WED | 5,143 | CBSD68, Urban100 | 168 |
+| **Dehazing** | OTS | 72,135 | SOTS | 500 |
+| **Deraining** | RainTrainL | 600 | Rain100L | 100 |
+| **Deblurring** | GoPro | 2,103 | GoPro | 1,111 |
+| **Low-light** | LoL | 485 | LoL | 15 |
 
 ---
 
-## 🔧 Setup
+## 🔧 Environment & Setup Guide
 
-### 1. VLU-Net (Python backend)
+### Prerequisites
+
+| Requirement | Version | Purpose |
+| :--- | :--- | :--- |
+| **Python** | 3.9 | VLU-Net / BLIP-VLU-Net training & testing |
+| **Anaconda / Miniconda** | Latest | Conda environment management |
+| **CUDA** | 12.1+ | GPU-accelerated PyTorch training |
+| **Node.js** | v16+ | VLU-Net Viewer web frontend |
+| **npm** | v8+ | Node package manager |
+
+### 1. Clone the Repository
 
 ```shell
-cd VLU-Net
-conda create -n vlunet
-conda activate vlunet
-pip install -r requirements.txt
+git clone https://github.com/lryy78/BLIP-VLU-Net.git
+cd BLIP-VLU-Net
 ```
 
-Download pretrained weights and datasets as described in [`VLU-Net/README.md`](VLU-Net/README.md).
+### 2. VLU-Net / BLIP-VLU-Net (Python Backend)
 
-### 2. vlu-net-viewer (Web frontend)
+```shell
+# Create and activate a new conda environment
+conda create -n blipvlunet python=3.9 -y
+conda activate blipvlunet
+
+# Install PyTorch with CUDA support (adjust for your CUDA version)
+# See https://pytorch.org/get-started/locally/ for other configurations
+pip install torch==2.4.1 torchvision==0.19.1 --index-url https://download.pytorch.org/whl/cu121
+
+# Install all remaining dependencies from the root requirements.txt
+pip install -r requirements.txt
+
+# Register the conda environment as a Jupyter kernel (for running the Phase notebooks)
+pip install ipykernel
+python -m ipykernel install --user --name blipvlunet --display-name "Python (blipvlunet)"
+```
+
+> **Key Dependencies:**
+> - `torch==2.4.1`, `torchvision==0.19.1` — PyTorch with CUDA 12.1
+> - `salesforce-lavis==1.0.2` — BLIP-2 model (Salesforce LAVIS)
+> - `transformers==4.37.2` — Hugging Face Transformers
+> - `openai-clip==1.0.1` — OpenAI CLIP
+> - `pytorch-lightning==2.4.0` — Training framework
+
+### 3. BLIP-VLU-Net Prototype (Web Prototype)
+
+```shell
+cd blip-vlu-net-prototype
+npm install
+npm start        # Starts both Vite dev server and Express backend
+```
+
+> The prototype viewer uses pre-prepared images for quick demonstration and testing. It runs independently from the main viewer.
+
+### 4. VLU-Net Viewer (Web Frontend)
 
 ```shell
 cd vlu-net-viewer
 npm install
-npm start          # same as npm run dev; runs Vite + Express image server
+npm start        # Starts both Vite dev server and Express backend
 ```
 
-The viewer lets you:
-- Select restoration tasks (single lowlight / rain / haze / blur / noise, 3-task, 5-task)
-- Use dataset/level selectors for single noise, 3-task NHR, and 5-task NHRBL results
-- Shuffle images within each task
-- Compare **degraded**, **VLU restored**, **BLIP-VLU restored**, and **GT** images with an image slider
-- View per-image **PSNR/SSIM** metrics
-- Hover-to-zoom and scroll-to-zoom on individual result tiles
+> **Note:** The viewer requires Anaconda Prompt (not standard `cmd` or PowerShell) when using the Upload & Restore feature, as it invokes PyTorch inference on the backend.
+
+*For more details on the viewer, check out the [Viewer README](vlu-net-viewer/README.md).*
 
 ---
 
-## 🚀 Usage
+## 🚀 Usage Guide
 
-### Original VLU-Net (train.py / test.py)
+### BLIP-VLU-Net Training & Testing
 
 **Training:**
 ```shell
 cd VLU-Net
-python train.py --name Final5 --de_dim 7 --de_type ['denoise_15','denoise_25','denoise_50','derain','dehaze','delowlight','deblur']
+# 5-task NHRBL (Noise, Haze, Rain, Blur, Lowlight)
+python blip_vlunet_train.py --name NHRBL --de_dim 7 --de_type "['denoise_15','denoise_25','denoise_50','derain','dehaze','deblur','delowlight']"
 ```
 
 **Testing:**
 ```shell
-python test.py --name final_results --task NHR --de_dim 7 --pretrained_ckpt_path "./pretrained_ckpt/3task_vlunet.ckpt"
-```
-
-See [`VLU-Net/README.md`](VLU-Net/README.md) for all task variants.
-
-### BLIP-VLU-Net (blip_vlunet_train.py / blip_vlu_test.py)
-
-**Training:**
-```shell
 cd VLU-Net
-
-# 5-task NHRBL (noise, haze, rain, blur, lowlight)
-python blip_vlunet_train.py --name NHRBL --de_dim 7 --de_type ['denoise_15','denoise_25','denoise_50','derain','dehaze','deblur','delowlight']
-
-# 3-task NHR (noise, haze, rain)
-python blip_vlunet_train.py --name NHR --de_dim 7 --de_type ['denoise_15','denoise_25','denoise_50','derain','dehaze']
-
-# Single-task: denoising
-python blip_vlunet_train.py --name Denoise --de_dim 7 --de_type ['denoise_15','denoise_25','denoise_50']
-
-# Single-task: dehazing
-python blip_vlunet_train.py --name Dehaze --de_dim 7 --de_type ['dehaze']
-
-# Single-task: deraining
-python blip_vlunet_train.py --name Derain --de_dim 7 --de_type ['derain']
-
-# Single-task: lowlight enhancement
-python blip_vlunet_train.py --name Delowlight --de_dim 7 --de_type ['delowlight']
-
-# Single-task: deblurring
-python blip_vlunet_train.py --name Deblur --de_dim 7 --de_type ['deblur']
-```
-
-**Testing (with BLIP-tuned checkpoints):**
-```shell
-cd VLU-Net
-
 # 5-task NHRBL
 python blip_vlu_test.py --name blip_final_results --task blip_NHRBL --de_dim 7 --pretrained_ckpt_path "blip_vlunet_pretrained_ckpt/5task_blip_vlunet.ckpt"
-
-# 3-task NHR
-python blip_vlu_test.py --name blip_final_results --task blip_NHR --de_dim 7 --pretrained_ckpt_path "blip_vlunet_pretrained_ckpt/3task_blip_vlunet.ckpt"
-
-# Single-task: denoising
-python blip_vlu_test.py --name blip_final_results --task blip_N --de_dim 7 --pretrained_ckpt_path "blip_vlunet_pretrained_ckpt/single_noise_blip_vlunet.ckpt"
-
-# Single-task: dehazing
-python blip_vlu_test.py --name blip_final_results --task blip_H --de_dim 7 --pretrained_ckpt_path "blip_vlunet_pretrained_ckpt/single_haze_blip_vlunet.ckpt"
-
-# Single-task: deraining
-python blip_vlu_test.py --name blip_final_results --task blip_R --de_dim 7 --pretrained_ckpt_path "blip_vlunet_pretrained_ckpt/single_rain_blip_vlunet.ckpt"
-
-# Single-task: deblurring
-python blip_vlu_test.py --name blip_final_results --task blip_B --de_dim 7 --pretrained_ckpt_path "blip_vlunet_pretrained_ckpt/single_blur_blip_vlunet.ckpt"
-
-# Single-task: lowlight enhancement
-python blip_vlu_test.py --name blip_final_results --task blip_L --de_dim 7 --pretrained_ckpt_path "blip_vlunet_pretrained_ckpt/single_lowlight_blip_vlunet.ckpt"
 ```
+
+> For single-task or 3-task commands, as well as original VLU-Net commands, refer to the full script parameters.
+
+> **💡 Tip:** Training and testing can also be run and modified interactively through the **Phase 4** (training) and **Phase 5** (testing) Jupyter notebooks located in `VLU-Net/`.
 
 ---
 
-## 📜 Citation
+## 🤗 Acknowledgements
 
-If you use this work, please cite the original VLU-Net paper:
+This work builds upon [VLU-Net](https://github.com/xianggkl/VLU-Net).
 
-```bibtex
-@inproceedings{vlunet2025,
-  title={Vision-Language Gradient Descent-driven All-in-One Deep Unfolding Networks},
-  author={Zeng, Haijin and Wang, Xiangming and Chen, Yongyong and Su, Jingyong and Liu, Jie},
-  booktitle={Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition},
-  year={2025}
-}
-```
+## 📧 Contact
 
-## 🤗 Acknowledgement
-
-This work is based on [VLU-Net](https://github.com/xianggkl/VLU-Net), [Restormer](https://github.com/swz30/Restormer), [DGUNet](https://github.com/MC-E/Deep-Generalized-Unfolding-Networks-for-Image-Restoration), and [open_clip](https://github.com/mlfoundations/open_clip).
+For any questions, issues, or suggestions, please feel free to reach out:
+- **Email:** lamrongyi983@gmail.com
