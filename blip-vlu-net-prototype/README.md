@@ -46,4 +46,4 @@ If you want to compile the prototype for production:
 
 ---
 
-> **Note:** For the full interactive web viewer with model inference capabilities, please refer to the [`vlu-net-viewer/`](../vlu-net-viewer/) directory. For the main model implementation, please refer to the [`VLU-Net/`](../VLU-Net/) directory.
+> **Note:** For the full interactive web viewer with model inference capabilities, please refer to the [`blip-vlu-net-interactive-viewer/`](../blip-vlu-net-interactive-viewer/) directory. For the main model implementation, please refer to the [`VLU-Net/`](../VLU-Net/) directory.

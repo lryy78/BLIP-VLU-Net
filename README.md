@@ -33,7 +33,7 @@ BLIP-VLU-Net/
 │   ├── Phase4_*.ipynb             # BLIP-VLU-Net training experiments
 │   ├── Phase5_*.ipynb             # BLIP-VLU-Net testing and evaluation
 │   └── Phase6_*.ipynb             # Qualitative results visualization
-└── vlu-net-viewer/                # Interactive web viewer (requires blip_vlunet_pretrained_ckpt/ and output/)
+└── blip-vlu-net-interactive-viewer/ # Interactive web viewer (requires blip_vlunet_pretrained_ckpt/ and output/)
 ```
 
 > **⚠️ Note:** Datasets, model outputs, and pretrained checkpoints are **not included** in this repository due to their large size. Please refer to the [original VLU-Net README](VLU-Net/README.md) for download instructions for the original VLU-Net datasets.
@@ -116,14 +116,14 @@ npm start        # Starts both Vite dev server and Express backend
 ### 4. VLU-Net Viewer (Web Frontend)
 
 ```shell
-cd vlu-net-viewer
+cd blip-vlu-net-interactive-viewer
 npm install
 npm start        # Starts both Vite dev server and Express backend
 ```
 
 > **Note:** The viewer requires Anaconda Prompt (not standard `cmd` or PowerShell) when using the Upload & Restore feature, as it invokes PyTorch inference on the backend.
 
-*For more details on the viewer, check out the [Viewer README](vlu-net-viewer/README.md).*
+*For more details on the viewer, check out the [Viewer README](blip-vlu-net-interactive-viewer/README.md).*
 
 ---
 
