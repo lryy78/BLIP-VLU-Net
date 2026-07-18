@@ -1,20 +1,49 @@
-# AiOIR Viewer
+# 🔬 BLIP-VLU-Net Prototype
 
-Interactive React + Vite viewer for comparing VLU-Net and BLIP-VLU-Net restoration outputs.
+This directory contains the initial prototypes and pre-prepared images used during the development of the **BLIP-VLU-Net** architecture.
 
-## Run
+## 📂 Contents
 
-```shell
-npm install
-npm start
-```
+- **Pre-prepared Images**: Sample images used for early testing and validation of the BLIP-enhanced training pipeline.
+- **Experimental Assets**: Various prototype scripts and configurations that were tested before integrating into the core `VLU-Net/` directory.
 
-`npm start` and `npm run dev` both start the Vite frontend and Express image backend together.
+## 🚀 How to Run (Development Mode)
 
-## Supported Tasks
+If you want to run the prototype locally with live reloading:
 
-- Single lowlight, rain, haze, blur, and noise
-- 3-task NHR with `CBSD68`, `Urban100_HR`, `SOTS_outdoors`, and `Rain100L`
-- 5-task NHRBL with `CBSD68`, `Urban100_HR`, `SOTS_outdoors`, `Rain100L`, `GoPro`, and `LoL`
+1. Open your terminal and navigate to the prototype directory:
+   ```shell
+   cd blip-vlu-net-prototype
+   ```
+2. Install the Node.js dependencies:
+   ```shell
+   npm install
+   ```
+3. Start the Vite development server and Express backend concurrently:
+   ```shell
+   npm start
+   ```
+   *(Note: `npm start` is a shortcut for `npm run dev`)*
+4. Open your browser and navigate to `http://localhost:5173/`.
 
-The viewer calculates PSNR/SSIM in the browser for VLU and BLIP-VLU images that exist. Missing BLIP outputs show `N/A` and do not block VLU metric calculation.
+## 📦 How to Build (Production Mode)
+
+If you want to compile the prototype for production:
+
+1. Navigate to the directory:
+   ```shell
+   cd blip-vlu-net-prototype
+   ```
+2. Build the React frontend into static files:
+   ```shell
+   npm run build
+   ```
+3. Start the production server:
+   ```shell
+   npm run serve
+   ```
+   *(This command runs the build and then starts `server.js`)*
+
+---
+
+> **Note:** For the full interactive web viewer with model inference capabilities, please refer to the [`vlu-net-viewer/`](../vlu-net-viewer/) directory. For the main model implementation, please refer to the [`VLU-Net/`](../VLU-Net/) directory.
