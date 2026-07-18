@@ -17,6 +17,8 @@ This project proposes a severity-aware All-in-One Image Restoration (AiOIR) fram
 ### Overall Framework
 <img src="BLIP-VLU-Net_assets\figures\Framework.png" alt="Framework" width="800" />
 
+> 📘 For a deeper understanding of the architecture, phase‑by‑phase implementation workflow, and key findings, refer to the [BLIP‑VLU‑Net Assets README](BLIP-VLU-Net_assets/README.md).
+
 ---
 
 ## 📁 Repository Structure
